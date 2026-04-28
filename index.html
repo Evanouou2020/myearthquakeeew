@@ -17,7 +17,6 @@
       --accent: #00b4ff;
       --accent-dim: #004466;
       --green: #00ff88;
-      --green-dim: #003322;
       --amber: #ffaa00;
       --red: #ff3333;
       --text: #c8d8e8;
@@ -25,8 +24,6 @@
       --mono: 'Share Tech Mono', monospace;
       --sans: 'Rajdhani', sans-serif;
     }
-
-    html, body { height: 100%; }
 
     body {
       font-family: var(--mono);
@@ -39,40 +36,46 @@
       background-size: 40px 40px;
     }
 
-    /* ── TOP BAR ── */
+    /* TOP BAR */
     #topbar {
       background: var(--surface);
       border-bottom: 1px solid var(--border-bright);
-      padding: 0 24px;
-      height: 48px;
+      padding: 0 20px;
+      height: 40px;
       display: flex;
       align-items: center;
-      gap: 20px;
-      font-size: 0.7rem;
+      gap: 16px;
+      font-size: 0.68rem;
       color: var(--text-dim);
     }
-
-    #topbar .tb-label { color: var(--accent); letter-spacing: 0.1em; }
     #topbar .tb-sep { color: var(--border-bright); }
-    #topbar .tb-right { margin-left: auto; display: flex; gap: 20px; align-items: center; }
-
-    #conn-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #333; flex-shrink: 0;
-      transition: background 0.3s;
+    #topbar .tb-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+    #topbar a.ig-link { color: #c060c0; text-decoration: none; font-size: 0.67rem; }
+    #topbar a.ig-link:hover { text-decoration: underline; }
+    .contact-btn {
+      border: 1px solid var(--border-bright);
+      border-radius: 2px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 0.63rem;
+      padding: 3px 10px;
+      text-decoration: none;
+      display: inline-block;
+      transition: border-color 0.2s, color 0.2s;
     }
-    #conn-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .contact-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #333; flex-shrink: 0; }
+    #conn-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
     #conn-dot.connecting { background: var(--amber); animation: blink 1s infinite; }
     #conn-dot.error { background: var(--red); }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
-    /* ── HEADER ── */
+    /* HEADER */
     header {
       background: var(--surface);
       border-bottom: 2px solid var(--accent-dim);
-      padding: 18px 24px 14px;
+      padding: 16px 20px 12px;
     }
-
     .header-inner {
       max-width: 1300px;
       margin: 0 auto;
@@ -81,291 +84,248 @@
       gap: 24px;
       flex-wrap: wrap;
     }
-
-    .logo-block {}
-
-    .logo-sys {
-      font-family: var(--sans);
-      font-weight: 700;
-      font-size: 1.7rem;
-      letter-spacing: 0.06em;
-      color: #fff;
-      line-height: 1;
-    }
-
+    .logo-sys { font-family: var(--sans); font-weight: 700; font-size: 1.6rem; letter-spacing: 0.05em; color: #fff; line-height: 1; }
     .logo-sys span { color: var(--accent); }
-
-    .logo-sub {
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      margin-top: 4px;
-    }
-
-    .header-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      font-size: 0.68rem;
-      color: var(--text-dim);
-      border-left: 1px solid var(--border-bright);
-      padding-left: 20px;
-    }
-
+    .logo-sub { font-size: 0.63rem; color: var(--text-dim); letter-spacing: 0.14em; text-transform: uppercase; margin-top: 5px; }
+    .header-meta { display: flex; flex-direction: column; gap: 3px; font-size: 0.67rem; color: var(--text-dim); border-left: 1px solid var(--border-bright); padding-left: 18px; }
     .header-meta .hm-row { display: flex; gap: 8px; }
-    .header-meta .hm-key { color: var(--accent); min-width: 60px; }
+    .header-meta .hm-key { color: var(--accent); min-width: 56px; }
+    #clock-block { margin-left: auto; text-align: right; font-size: 0.7rem; color: var(--text-dim); line-height: 1.7; font-variant-numeric: tabular-nums; }
+    #clock-block .tz { color: var(--accent); font-size: 0.6rem; margin-left: 4px; }
 
-    #clock-block {
-      margin-left: auto;
-      text-align: right;
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      line-height: 1.7;
-      font-variant-numeric: tabular-nums;
-    }
-
-    #clock-block .tz { color: var(--accent); font-size: 0.62rem; margin-left: 4px; }
-
-    /* ── DISCLAIMER ── */
+    /* DISCLAIMER */
     #disclaimer {
       background: #120d00;
       border-bottom: 1px solid #3a2500;
       color: var(--amber);
-      font-size: 0.68rem;
+      font-size: 0.67rem;
       text-align: center;
       padding: 6px 20px;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
     }
 
-    /* ── LAYOUT ── */
+    /* LAYOUT */
     .layout {
       max-width: 1300px;
-      margin: 24px auto;
+      margin: 22px auto 0;
       padding: 0 20px;
       display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 20px;
+      grid-template-columns: 1fr 360px;
+      gap: 18px;
       align-items: start;
     }
 
-    /* ── PANEL ── */
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 2px;
-    }
-
+    /* PANEL */
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 2px; }
     .panel-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 14px; border-bottom: 1px solid var(--border);
+      font-size: 0.63rem; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase;
     }
-
     .panel-header .ph-title { color: var(--accent); font-weight: bold; }
     .panel-header .ph-right { margin-left: auto; }
 
-    .panel-body { padding: 16px; }
-
-    /* ── NTFY ALERTS ── */
-    #alerts-list { display: flex; flex-direction: column; gap: 10px; }
-
-    #empty {
-      color: var(--text-dim);
-      font-size: 0.75rem;
-      padding: 40px 0;
-      text-align: center;
-      letter-spacing: 0.05em;
+    /* TABS */
+    .tab-bar { display: flex; border-bottom: 1px solid var(--border); }
+    .tab-btn {
+      background: none; border: none; border-bottom: 2px solid transparent;
+      color: var(--text-dim); font-family: var(--mono); font-size: 0.63rem;
+      letter-spacing: 0.1em; text-transform: uppercase; padding: 9px 14px;
+      cursor: pointer; margin-bottom: -1px; transition: color 0.2s, border-color 0.2s;
     }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-pane { display: none; padding: 14px; }
+    .tab-pane.active { display: block; }
 
+    /* ALERT CARDS */
+    #alerts-list, #past-list { display: flex; flex-direction: column; gap: 10px; }
+    #empty { color: var(--text-dim); font-size: 0.72rem; padding: 40px 0; text-align: center; letter-spacing: 0.05em; }
     .alert-card {
-      border: 1px solid var(--border);
-      border-left: 3px solid var(--text-dim);
-      border-radius: 2px;
-      padding: 12px 14px;
-      background: #080b0f;
-      animation: slideIn 0.2s ease;
+      border: 1px solid var(--border); border-left: 3px solid var(--text-dim);
+      border-radius: 2px; padding: 11px 13px; background: #080b0f; animation: slideIn 0.2s ease;
     }
-
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(-6px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
+    @keyframes slideIn { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
     .alert-card.priority-5 { border-left-color: var(--red); }
     .alert-card.priority-4 { border-left-color: var(--amber); }
     .alert-card.priority-3 { border-left-color: var(--accent); }
     .alert-card.priority-2 { border-left-color: var(--green); }
     .alert-card.priority-1 { border-left-color: #444; }
+    .ac-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+    .ac-title { font-family: var(--sans); font-weight: 600; font-size: 0.93rem; color: #fff; flex: 1; }
+    .ac-time { font-size: 0.63rem; color: var(--text-dim); white-space: nowrap; }
+    .ac-msg { font-size: 0.76rem; color: #8aacbc; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .ac-tags { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 5px; }
+    .tag { background: #0d1520; border: 1px solid var(--border-bright); border-radius: 2px; padding: 1px 7px; font-size: 0.62rem; color: var(--accent); }
+    .priority-badge { font-size: 0.59rem; padding: 2px 6px; border-radius: 2px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .pb-5 { background:#2a0a0a; color:var(--red); border:1px solid #5a1010; }
+    .pb-4 { background:#2a1a00; color:var(--amber); border:1px solid #5a3a00; }
+    .pb-3 { background:#001a2a; color:var(--accent); border:1px solid #003050; }
+    .pb-2 { background:#002a15; color:var(--green); border:1px solid #005030; }
+    .pb-1 { background:#151515; color:#666; border:1px solid #333; }
 
-    .ac-top {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
-      flex-wrap: wrap;
+    /* USGS ROWS */
+    #usgs-list { display: flex; flex-direction: column; gap: 7px; }
+    a.eq-row {
+      display: grid; grid-template-columns: 48px 1fr; gap: 10px; align-items: center;
+      padding: 9px 10px; border: 1px solid var(--border); border-radius: 2px;
+      background: #080b0f; text-decoration: none;
+      transition: border-color 0.15s, background 0.15s;
     }
-
-    .ac-title {
-      font-family: var(--sans);
-      font-weight: 600;
-      font-size: 0.95rem;
-      color: #fff;
-      flex: 1;
-    }
-
-    .ac-time { font-size: 0.65rem; color: var(--text-dim); white-space: nowrap; }
-
-    .ac-msg {
-      font-size: 0.78rem;
-      color: #8aacbc;
-      line-height: 1.5;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .ac-tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
-
-    .tag {
-      background: #0d1520;
-      border: 1px solid var(--border-bright);
-      border-radius: 2px;
-      padding: 1px 7px;
-      font-size: 0.63rem;
-      color: var(--accent);
-    }
-
-    .priority-badge {
-      font-size: 0.6rem;
-      padding: 2px 6px;
-      border-radius: 2px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .pb-5 { background: #2a0a0a; color: var(--red); border: 1px solid #5a1010; }
-    .pb-4 { background: #2a1a00; color: var(--amber); border: 1px solid #5a3a00; }
-    .pb-3 { background: #001a2a; color: var(--accent); border: 1px solid #003050; }
-    .pb-2 { background: #002a15; color: var(--green); border: 1px solid #005030; }
-    .pb-1 { background: #151515; color: #666; border: 1px solid #333; }
-
-    /* ── USGS PANEL ── */
-    #usgs-list { display: flex; flex-direction: column; gap: 8px; }
-
-    .eq-row {
-      display: grid;
-      grid-template-columns: 44px 1fr auto;
-      gap: 10px;
-      align-items: center;
-      padding: 8px 10px;
-      border: 1px solid var(--border);
-      border-radius: 2px;
-      background: #080b0f;
-      animation: slideIn 0.2s ease;
-    }
-
-    .eq-mag {
-      font-family: var(--sans);
-      font-weight: 700;
-      font-size: 1.2rem;
-      text-align: center;
-      line-height: 1;
-    }
-
-    .eq-mag.m-minor { color: var(--green); }
-    .eq-mag.m-light { color: #80ff44; }
+    a.eq-row:hover { border-color: var(--border-bright); background: #0d1118; }
+    .eq-mag { font-family: var(--sans); font-weight: 700; font-size: 1.15rem; text-align: center; line-height: 1; }
+    .eq-mag.m-micro  { color: #607080; }
+    .eq-mag.m-minor  { color: var(--green); }
+    .eq-mag.m-light  { color: #80ff44; }
     .eq-mag.m-moderate { color: var(--amber); }
     .eq-mag.m-strong { color: #ff8800; }
-    .eq-mag.m-major { color: var(--red); }
-
+    .eq-mag.m-major  { color: var(--red); }
     .eq-info { min-width: 0; }
-    .eq-place {
-      font-size: 0.72rem;
-      color: var(--text);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .eq-detail { font-size: 0.62rem; color: var(--text-dim); margin-top: 2px; }
+    .eq-place { font-size: 0.71rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .eq-detail { font-size: 0.61rem; color: var(--text-dim); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .eq-detail .mmi-val { color: #aac0d0; }
+    #usgs-updated { font-size: 0.59rem; color: var(--text-dim); margin-top: 9px; text-align: right; }
 
-    .eq-dist {
-      font-size: 0.65rem;
-      color: var(--accent);
-      text-align: right;
-      white-space: nowrap;
+    /* SEISMOGRAM */
+    .seis-wrap {
+      max-width: 1300px;
+      margin: 18px auto 0;
+      padding: 0 20px;
     }
-
-    #usgs-updated {
-      font-size: 0.6rem;
+    #seis-canvas {
+      width: 100%;
+      height: 160px;
+      display: block;
+      background: #020405;
+      border-radius: 0 0 2px 2px;
+    }
+    .seis-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 14px;
+      font-size: 0.61rem;
       color: var(--text-dim);
-      margin-top: 10px;
-      text-align: right;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .seis-info .si-right { margin-left: auto; }
+    #seis-status { color: var(--text-dim); }
+    #seis-status.ok { color: var(--green); }
+    #seis-status.err { color: var(--red); }
+
+    /* ABOUT */
+    .about-wrap {
+      max-width: 1300px;
+      margin: 18px auto 0;
+      padding: 0 20px;
     }
 
-    /* ── FOOTER ── */
+    details.about-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+    }
+
+    details.about-panel summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      font-size: 0.63rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+    }
+    details.about-panel summary::-webkit-details-marker { display: none; }
+    details.about-panel summary .ph-title { color: var(--accent); font-weight: bold; }
+    details.about-panel summary .arrow { color: var(--accent); margin-left: auto; transition: transform 0.2s; }
+    details.about-panel[open] summary .arrow { transform: rotate(90deg); }
+
+    .about-body {
+      padding: 18px 20px 20px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .about-block h3 {
+      font-family: var(--sans);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .about-block p {
+      font-size: 0.72rem;
+      color: #8aacbc;
+      line-height: 1.7;
+      margin-bottom: 8px;
+    }
+
+    .about-block p:last-child { margin-bottom: 0; }
+
+    .about-block .kv { display: flex; gap: 8px; font-size: 0.68rem; margin-bottom: 4px; }
+    .about-block .kv .k { color: var(--accent); min-width: 110px; }
+    .about-block .kv .v { color: #8aacbc; }
+
+    /* FOOTER */
     footer {
       max-width: 1300px;
-      margin: 12px auto 32px;
-      padding: 0 20px;
+      margin: 18px auto 28px;
+      padding: 14px 20px 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 0.63rem;
+      font-size: 0.62rem;
       color: var(--text-dim);
       flex-wrap: wrap;
       gap: 8px;
+      border-top: 1px solid var(--border);
     }
-
-    footer a {
-      color: var(--accent);
-      text-decoration: none;
-      letter-spacing: 0.05em;
-    }
+    footer a { color: var(--accent); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
-
-    .footer-left { display: flex; flex-direction: column; gap: 3px; }
 
     @media (max-width: 800px) {
       .layout { grid-template-columns: 1fr; }
       #clock-block { display: none; }
+      .about-body { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
 
-<!-- TOP STATUS BAR -->
+<!-- TOP BAR -->
 <div id="topbar">
-  <span class="tb-label">MYEARTHQUAKE</span>
-  <span class="tb-sep">|</span>
-  <span>PRELIM EWS v1.0</span>
-  <span class="tb-sep">|</span>
   <div id="conn-dot" class="connecting"></div>
-  <span id="conn-label">CONNECTING</span>
+  <span id="conn-label" style="color:var(--text-dim)">CONNECTING</span>
+  <span class="tb-sep">|</span>
+  <span>REGION: SAN RAMON, CA</span>
   <div class="tb-right">
-    <span>REGION: SAN RAMON, CA</span>
+    <a class="ig-link" href="https://www.instagram.com/myearthquake1/" target="_blank" rel="noopener">&#9654; @myearthquake1</a>
     <span class="tb-sep">|</span>
-    <span>NTFY: early_earthquake_warning_san_ramon</span>
+    <a class="contact-btn" href="mailto:evanouou2020@gmail.com">Questions? Email us</a>
   </div>
 </div>
 
 <!-- HEADER -->
 <header>
   <div class="header-inner">
-    <div class="logo-block">
+    <div>
       <div class="logo-sys">My<span>Earthquake</span></div>
       <div class="logo-sub">Preliminary Earthquake Warning System</div>
     </div>
     <div class="header-meta">
       <div class="hm-row"><span class="hm-key">LAT</span><span>37.7799° N</span></div>
       <div class="hm-row"><span class="hm-key">LON</span><span>121.9780° W</span></div>
-      <div class="hm-row"><span class="hm-key">RADIUS</span><span>500 km</span></div>
       <div class="hm-row"><span class="hm-key">SOURCE</span><span>NTFY / USGS</span></div>
     </div>
     <div id="clock-block">
@@ -377,207 +337,416 @@
 
 <!-- DISCLAIMER -->
 <div id="disclaimer">
-  &#9888; TEST SYSTEM &mdash; Alerts may be inaccurate. Do not use for emergency decisions.
+  &#9888;&nbsp; TEST SYSTEM &mdash; Alerts may be inaccurate. Do not use for emergency decisions.
 </div>
 
 <!-- MAIN LAYOUT -->
 <div class="layout">
 
-  <!-- LEFT: NTFY ALERTS -->
+  <!-- LEFT: ALERTS -->
   <div class="panel">
     <div class="panel-header">
-      <span class="ph-title">LIVE ALERTS</span>
+      <span class="ph-title">ALERTS</span>
       <span>// NTFY FEED</span>
       <span class="ph-right" id="alert-count">0 received</span>
     </div>
-    <div class="panel-body">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('live')">Live</button>
+      <button class="tab-btn" onclick="switchTab('past')">Past Alerts (12h)</button>
+    </div>
+    <div id="tab-live" class="tab-pane active">
       <div id="empty">— AWAITING ALERTS —</div>
       <div id="alerts-list"></div>
+    </div>
+    <div id="tab-past" class="tab-pane">
+      <div id="past-status" style="color:var(--text-dim);font-size:0.72rem;text-align:center;padding:30px 0">Loading past 12 hours…</div>
+      <div id="past-list"></div>
     </div>
   </div>
 
   <!-- RIGHT: USGS -->
   <div class="panel">
     <div class="panel-header">
-      <span class="ph-title">RECENT SEISMICITY</span>
-      <span>// USGS M0.5+</span>
-      <span class="ph-right">500 km</span>
+      <span class="ph-title">CALIFORNIA SEISMICITY</span>
+      <span class="ph-right">// USGS M1.0+</span>
     </div>
-    <div class="panel-body">
-      <div id="usgs-list"><div style="color:var(--text-dim);font-size:0.75rem;text-align:center;padding:20px 0">Loading USGS data…</div></div>
+    <div style="padding:14px">
+      <div id="usgs-list"><div style="color:var(--text-dim);font-size:0.72rem;text-align:center;padding:20px 0">Loading…</div></div>
       <div id="usgs-updated"></div>
     </div>
   </div>
 
 </div>
 
+<!-- SEISMOGRAM -->
+<div class="seis-wrap">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="ph-title">LIVE WAVEFORM</span>
+      <span>// BK.B054..EHZ &mdash; Berkeley Digital Seismic Network</span>
+      <span class="ph-right" id="seis-status">loading…</span>
+    </div>
+    <canvas id="seis-canvas"></canvas>
+    <div class="seis-info">
+      <span>Station B054 &mdash; Orinda, CA</span>
+      <span class="tb-sep">|</span>
+      <span>Channel: EHZ (short-period vertical)</span>
+      <span class="tb-sep">|</span>
+      <span>Source: IRIS / FDSN</span>
+      <span class="si-right" id="seis-time-range"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<div class="about-wrap">
+  <details class="about-panel" open>
+    <summary>
+      <span class="ph-title">ABOUT THIS SYSTEM</span>
+      <span>// Detection methodology &amp; system info</span>
+      <span class="arrow">&#9658;</span>
+    </summary>
+    <div class="about-body">
+      <div class="about-block">
+        <h3>System Overview</h3>
+        <p>
+          This system was created by <strong style="color:var(--text)">Evan Li</strong>. It is an experimental
+          earthquake early warning system that utilizes USGS public SeedLink data streams
+          to detect seismic events in real time.
+        </p>
+        <p>
+          As of April 2026, this system is <strong style="color:var(--amber)">unable to detect earthquake magnitude accurately</strong>.
+          Alerts should be treated as preliminary detections only. For accurate and authoritative
+          seismic information, please refer to the
+          <a href="https://earthquake.usgs.gov" target="_blank" rel="noopener">USGS Earthquake Hazards Program</a>.
+        </p>
+        <div style="margin-top:12px">
+          <div class="kv"><span class="k">Operator</span><span class="v">Evan Li</span></div>
+          <div class="kv"><span class="k">Status</span><span class="v">Experimental / Test</span></div>
+          <div class="kv"><span class="k">Alert Source</span><span class="v">NTFY (early_earthquake_warning_san_ramon)</span></div>
+          <div class="kv"><span class="k">Waveform Source</span><span class="v">IRIS FDSN / BK Network</span></div>
+          <div class="kv"><span class="k">Seismic Catalog</span><span class="v">USGS FDSN Web Services</span></div>
+        </div>
+      </div>
+      <div class="about-block">
+        <h3>Detection Method</h3>
+        <p>
+          Earthquake detection uses the <strong style="color:var(--text)">STA/LTA algorithm</strong>
+          (Short-Term Average / Long-Term Average), a classic technique in seismology for
+          identifying the onset of seismic waves in a continuous data stream.
+        </p>
+        <p>
+          The algorithm continuously computes two running averages of the raw seismogram amplitude:
+        </p>
+        <div style="margin: 10px 0">
+          <div class="kv"><span class="k">STA window</span><span class="v">~1–2 seconds (captures sudden motion)</span></div>
+          <div class="kv"><span class="k">LTA window</span><span class="v">~30–60 seconds (captures background noise)</span></div>
+          <div class="kv"><span class="k">Trigger ratio</span><span class="v">STA / LTA &gt; threshold (e.g. 3.0)</span></div>
+        </div>
+        <p>
+          When ground motion suddenly increases — as it does during a P-wave arrival — the STA
+          rises sharply while the LTA remains low, causing the ratio to spike above the threshold
+          and trigger an alert. Because this method only detects <em>energy onset</em>, it cannot
+          reliably compute magnitude without additional processing steps such as peak amplitude
+          measurement and distance correction, which this system does not yet perform.
+        </p>
+      </div>
+    </div>
+  </details>
+</div>
+
 <!-- FOOTER -->
 <footer>
-  <div class="footer-left">
-    <span>MyEarthquake Preliminary Earthquake Warning System &mdash; San Ramon, CA</span>
-    <span>Data sources: NTFY (myearthquake feed), USGS Earthquake Hazards Program</span>
-  </div>
-  <a href="https://www.instagram.com/myearthquake1/" target="_blank" rel="noopener">Instagram: @myearthquake1</a>
+  <span>MyEarthquake Preliminary EWS &mdash; San Ramon, CA &mdash; Data: NTFY &amp; USGS &amp; IRIS</span>
+  <span><a href="mailto:evanouou2020@gmail.com">evanouou2020@gmail.com</a> &nbsp;|&nbsp; <a href="https://www.instagram.com/myearthquake1/" target="_blank" rel="noopener">@myearthquake1</a></span>
 </footer>
 
 <script>
-  // ── NTFY ──
-  const NTFY_URL = "https://ntfy.sh/early_earthquake_warning_san_ramon/sse";
-  const dot = document.getElementById("conn-dot");
-  const connLabel = document.getElementById("conn-label");
-  const alertsListEl = document.getElementById("alerts-list");
-  const emptyEl = document.getElementById("empty");
-  const alertCountEl = document.getElementById("alert-count");
-  const PRIORITY_LABELS = { 1:"MIN", 2:"LOW", 3:"DEFAULT", 4:"HIGH", 5:"MAX" };
-  let alertCount = 0;
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  const ms = String(now.getMilliseconds()).padStart(3, "0");
+  const pdt = now.toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false });
+  const pdtDate = now.toLocaleDateString("en-US", { timeZone:"America/Los_Angeles", month:"short", day:"numeric", year:"numeric" });
+  const utc = now.toLocaleTimeString("en-US", { timeZone:"UTC", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false });
+  const utcDate = now.toLocaleDateString("en-US", { timeZone:"UTC", month:"short", day:"numeric", year:"numeric" });
+  document.getElementById("clock-pdt").innerHTML = `${pdtDate} &nbsp; ${pdt}.${ms} <span class="tz">PDT</span>`;
+  document.getElementById("clock-utc").innerHTML = `${utcDate} &nbsp; ${utc}.${ms} <span class="tz">UTC</span>`;
+}
+updateClock();
+setInterval(updateClock, 50);
 
-  function setStatus(state, text) {
-    dot.className = state;
-    connLabel.textContent = text;
-  }
+// ── HELPERS ──
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
 
-  function formatAlertTime(unixSeconds) {
-    const d = unixSeconds ? new Date(unixSeconds * 1000) : new Date();
-    const pdt = d.toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false });
-    return pdt + " PDT";
-  }
+// ── NTFY ──
+const NTFY_URL = "https://ntfy.sh/early_earthquake_warning_san_ramon/sse";
+const dot = document.getElementById("conn-dot");
+const connLabel = document.getElementById("conn-label");
+const alertsListEl = document.getElementById("alerts-list");
+const emptyEl = document.getElementById("empty");
+const alertCountEl = document.getElementById("alert-count");
+const PRIORITY_LABELS = { 1:"MIN", 2:"LOW", 3:"DEFAULT", 4:"HIGH", 5:"MAX" };
+let alertCount = 0;
 
-  function renderAlert(msg) {
-    emptyEl.style.display = "none";
-    alertCount++;
-    alertCountEl.textContent = alertCount + " received";
+function setStatus(state, text) { dot.className = state; connLabel.textContent = text; }
 
-    const priority = msg.priority || 3;
-    const tags = msg.tags || [];
-    const title = msg.title || "Alert";
-    const message = msg.message || "";
+function formatAlertTime(unix) {
+  const d = unix ? new Date(unix * 1000) : new Date();
+  return d.toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) + " PDT";
+}
 
-    const card = document.createElement("div");
-    card.className = `alert-card priority-${priority}`;
-    card.innerHTML = `
-      <div class="ac-top">
-        <span class="ac-title">${escHtml(title)}</span>
-        <span class="priority-badge pb-${priority}">${PRIORITY_LABELS[priority]||"DEFAULT"}</span>
-        <span class="ac-time">${formatAlertTime(msg.time)}</span>
-      </div>
-      ${message ? `<div class="ac-msg">${escHtml(message)}</div>` : ""}
-      ${tags.length ? `<div class="ac-tags">${tags.map(t=>`<span class="tag">${escHtml(t)}</span>`).join("")}</div>` : ""}
-    `;
-    alertsListEl.insertBefore(card, alertsListEl.firstChild);
+function buildAlertCard(msg) {
+  const priority = msg.priority || 3;
+  const tags = msg.tags || [];
+  const title = msg.title || "Alert";
+  const message = msg.message || "";
+  const card = document.createElement("div");
+  card.className = `alert-card priority-${priority}`;
+  card.innerHTML = `
+    <div class="ac-top">
+      <span class="ac-title">${escHtml(title)}</span>
+      <span class="priority-badge pb-${priority}">${PRIORITY_LABELS[priority]||"DEFAULT"}</span>
+      <span class="ac-time">${formatAlertTime(msg.time)}</span>
+    </div>
+    ${message ? `<div class="ac-msg">${escHtml(message)}</div>` : ""}
+    ${tags.length ? `<div class="ac-tags">${tags.map(t=>`<span class="tag">${escHtml(t)}</span>`).join("")}</div>` : ""}
+  `;
+  return card;
+}
 
-    if (Notification.permission === "granted") {
-      new Notification(title, { body: message, tag: msg.id });
-    }
-  }
+function renderAlert(msg) {
+  emptyEl.style.display = "none";
+  alertCount++;
+  alertCountEl.textContent = alertCount + " received";
+  alertsListEl.insertBefore(buildAlertCard(msg), alertsListEl.firstChild);
+  if (Notification.permission === "granted") new Notification(msg.title || "Alert", { body: msg.message || "", tag: msg.id });
+}
 
-  function escHtml(s) {
-    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  }
+function connect() {
+  setStatus("connecting", "CONNECTING");
+  const es = new EventSource(NTFY_URL);
+  es.onopen = () => setStatus("connected", "LIVE");
+  es.addEventListener("message", e => {
+    try { const m = JSON.parse(e.data); if (m.event === "message") renderAlert(m); } catch {}
+  });
+  es.onerror = () => { setStatus("error", "RECONNECTING"); es.close(); setTimeout(connect, 5000); };
+}
+if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+connect();
 
-  function connect() {
-    setStatus("connecting", "CONNECTING");
-    const es = new EventSource(NTFY_URL);
-    es.onopen = () => setStatus("connected", "LIVE");
-    es.addEventListener("message", e => {
-      try { const m = JSON.parse(e.data); if (m.event === "message") renderAlert(m); } catch {}
+// ── TABS ──
+let pastLoaded = false;
+function switchTab(name) {
+  document.querySelectorAll(".tab-btn").forEach((b,i) => b.classList.toggle("active", (i===0&&name==="live")||(i===1&&name==="past")));
+  document.getElementById("tab-live").classList.toggle("active", name==="live");
+  document.getElementById("tab-past").classList.toggle("active", name==="past");
+  if (name==="past" && !pastLoaded) fetchPastAlerts();
+}
+async function fetchPastAlerts() {
+  const statusEl = document.getElementById("past-status");
+  const listEl = document.getElementById("past-list");
+  statusEl.textContent = "Loading…";
+  try {
+    const res = await fetch("https://ntfy.sh/early_earthquake_warning_san_ramon/json?poll=1&since=12h");
+    const text = await res.text();
+    const messages = text.trim().split("\n")
+      .map(line => { try { return JSON.parse(line); } catch { return null; } })
+      .filter(m => m && m.event === "message").reverse();
+    if (messages.length === 0) { statusEl.textContent = "No alerts in the past 12 hours."; return; }
+    statusEl.style.display = "none";
+    listEl.innerHTML = "";
+    messages.forEach(m => listEl.appendChild(buildAlertCard(m)));
+    pastLoaded = true;
+  } catch { statusEl.textContent = "Failed to load history."; }
+}
+
+// ── USGS ──
+function magClass(m) {
+  if (m < 1) return "m-micro"; if (m < 2) return "m-minor"; if (m < 3) return "m-light";
+  if (m < 5) return "m-moderate"; if (m < 6) return "m-strong"; return "m-major";
+}
+function mmiLabel(mmi) {
+  if (mmi == null || isNaN(mmi)) return null;
+  const v = Math.round(mmi);
+  const labels = ["","I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"];
+  return (v >= 1 && v <= 12) ? labels[v] : null;
+}
+function formatEqTime(epochMs) {
+  return new Date(epochMs).toLocaleString("en-US", { timeZone:"America/Los_Angeles", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) + " PDT";
+}
+async function fetchUSGS() {
+  const url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson" +
+    "&minlatitude=32.5&maxlatitude=42.0&minlongitude=-124.5&maxlongitude=-114.0" +
+    "&minmagnitude=1.0&limit=15&orderby=time";
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const listEl = document.getElementById("usgs-list");
+    listEl.innerHTML = "";
+    data.features.forEach(f => {
+      const p = f.properties;
+      const mag = p.mag != null ? p.mag.toFixed(1) : "?";
+      const depth = f.geometry.coordinates[2] != null ? f.geometry.coordinates[2].toFixed(1) : "?";
+      const mmi = mmiLabel(p.mmi);
+      const row = document.createElement("a");
+      row.className = "eq-row";
+      row.href = p.url || "#";
+      row.target = "_blank"; row.rel = "noopener";
+      let detail = [`Depth: ${depth} km`, formatEqTime(p.time)];
+      if (mmi) detail.push(`<span class="mmi-val">Max Intensity: ${mmi}</span>`);
+      row.innerHTML = `
+        <div class="eq-mag ${magClass(parseFloat(mag))}">M${mag}</div>
+        <div class="eq-info">
+          <div class="eq-place">${escHtml(p.place || "Unknown")}</div>
+          <div class="eq-detail">${detail.join('<span style="color:var(--border-bright)"> &middot; </span>')}</div>
+        </div>`;
+      listEl.appendChild(row);
     });
-    es.onerror = () => {
-      setStatus("error", "RECONNECTING");
-      es.close();
-      setTimeout(connect, 5000);
-    };
+    document.getElementById("usgs-updated").textContent =
+      "Updated " + new Date().toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) + " PDT";
+  } catch {
+    document.getElementById("usgs-list").innerHTML =
+      `<div style="color:var(--text-dim);font-size:0.72rem;text-align:center;padding:20px 0">Failed to load USGS data.</div>`;
+  }
+}
+fetchUSGS();
+setInterval(fetchUSGS, 60000);
+
+// ── SEISMOGRAM ──
+const canvas = document.getElementById("seis-canvas");
+const ctx = canvas.getContext("2d");
+const seisStatus = document.getElementById("seis-status");
+const seisRange = document.getElementById("seis-time-range");
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = 160;
+}
+resizeCanvas();
+window.addEventListener("resize", () => { resizeCanvas(); drawWaveform(lastSamples, lastMeta); });
+
+let lastSamples = [];
+let lastMeta = null;
+
+function drawWaveform(samples, meta) {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = "#020405";
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = "#0d1520";
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 6; i++) {
+    const y = (H / 6) * i;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  for (let i = 1; i < 12; i++) {
+    const x = (W / 12) * i;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
   }
 
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission();
-  }
-  connect();
+  // Zero line
+  ctx.strokeStyle = "#1a3040";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
 
-  // ── USGS ──
-  const SAN_RAMON_LAT = 37.7799;
-  const SAN_RAMON_LON = -121.9780;
-
-  function haversineKm(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  if (!samples || samples.length < 2) {
+    ctx.fillStyle = "#4a6070";
+    ctx.font = "12px 'Share Tech Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("No waveform data", W/2, H/2 - 6);
+    ctx.font = "10px 'Share Tech Mono', monospace";
+    ctx.fillText("Station may be offline or data unavailable", W/2, H/2 + 12);
+    return;
   }
 
-  function magClass(m) {
-    if (m < 2) return "m-minor";
-    if (m < 4) return "m-light";
-    if (m < 5) return "m-moderate";
-    if (m < 6) return "m-strong";
-    return "m-major";
+  // Normalize
+  let min = Infinity, max = -Infinity;
+  for (const v of samples) { if (v < min) min = v; if (v > max) max = v; }
+  const range = Math.max(max - min, 1);
+  const pad = H * 0.1;
+
+  // Draw waveform
+  ctx.strokeStyle = "#00d472";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let i = 0; i < samples.length; i++) {
+    const x = (i / (samples.length - 1)) * W;
+    const y = pad + ((1 - (samples[i] - min) / range) * (H - pad * 2));
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
+  ctx.stroke();
 
-  function timeAgo(ms) {
-    const s = Math.floor((Date.now() - ms) / 1000);
-    if (s < 60) return s + "s ago";
-    if (s < 3600) return Math.floor(s/60) + "m ago";
-    if (s < 86400) return Math.floor(s/3600) + "h ago";
-    return Math.floor(s/86400) + "d ago";
+  // Time labels
+  if (meta) {
+    ctx.fillStyle = "#2a4050";
+    ctx.font = "10px 'Share Tech Mono', monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(meta.startStr, 6, H - 6);
+    ctx.textAlign = "right";
+    ctx.fillText(meta.endStr, W - 6, H - 6);
+    ctx.textAlign = "center";
+    ctx.fillText(meta.sps + " sps  |  " + samples.length + " samples", W/2, H - 6);
   }
+}
 
-  async function fetchUSGS() {
-    const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&latitude=${SAN_RAMON_LAT}&longitude=${SAN_RAMON_LON}&maxradiuskm=500&minmagnitude=0.5&limit=15&orderby=time`;
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-      const listEl = document.getElementById("usgs-list");
-      listEl.innerHTML = "";
+function pdtStr(d) {
+  return d.toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) + " PDT";
+}
 
-      data.features.forEach(f => {
-        const p = f.properties;
-        const coords = f.geometry.coordinates;
-        const mag = p.mag != null ? p.mag.toFixed(1) : "?";
-        const dist = Math.round(haversineKm(SAN_RAMON_LAT, SAN_RAMON_LON, coords[1], coords[0]));
-        const depth = coords[2] != null ? coords[2].toFixed(1) : "?";
-        const place = p.place || "Unknown location";
-        const ago = timeAgo(p.time);
+async function fetchSeismogram() {
+  const endTime = new Date();
+  const startTime = new Date(endTime.getTime() - 3 * 60 * 1000); // last 3 minutes
 
-        const row = document.createElement("div");
-        row.className = "eq-row";
-        row.innerHTML = `
-          <div class="eq-mag ${magClass(parseFloat(mag))}">M${mag}</div>
-          <div class="eq-info">
-            <div class="eq-place">${escHtml(place)}</div>
-            <div class="eq-detail">Depth: ${depth} km &nbsp;|&nbsp; ${ago}</div>
-          </div>
-          <div class="eq-dist">${dist} km</div>
-        `;
-        listEl.appendChild(row);
-      });
+  const fmt = d => d.toISOString().replace(/\.\d+Z$/, "");
+  const url = `https://service.iris.edu/irisws/timeseries/1/query` +
+    `?net=BK&sta=B054&loc=--&cha=EHZ` +
+    `&starttime=${fmt(startTime)}&endtime=${fmt(endTime)}` +
+    `&output=ascii1&demean=true&scale=auto`;
 
-      document.getElementById("usgs-updated").textContent =
-        "Updated: " + new Date().toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) + " PDT";
-    } catch (e) {
-      document.getElementById("usgs-list").innerHTML =
-        `<div style="color:var(--text-dim);font-size:0.72rem;text-align:center;padding:20px 0">Failed to load USGS data.</div>`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const text = await res.text();
+    const lines = text.trim().split("\n");
+
+    // Parse header
+    const header = lines[0];
+    const spsMatch = header.match(/([\d.]+)\s+sps/i);
+    const sps = spsMatch ? parseFloat(spsMatch[1]) : "?";
+
+    // Parse samples (skip header line, then read numbers)
+    const samples = [];
+    for (let i = 1; i < lines.length; i++) {
+      const v = parseFloat(lines[i].trim());
+      if (!isNaN(v)) samples.push(v);
     }
+
+    if (samples.length === 0) throw new Error("empty");
+
+    lastSamples = samples;
+    lastMeta = { sps, startStr: pdtStr(startTime), endStr: pdtStr(endTime) };
+
+    drawWaveform(lastSamples, lastMeta);
+    seisStatus.textContent = "live";
+    seisStatus.className = "ok";
+    seisRange.textContent = `${pdtStr(startTime)} → ${pdtStr(endTime)}`;
+  } catch (e) {
+    seisStatus.textContent = "unavailable";
+    seisStatus.className = "err";
+    drawWaveform([], null);
   }
+}
 
-  fetchUSGS();
-  setInterval(fetchUSGS, 60000);
-
-  // ── CLOCK ──
-  function updateClock() {
-    const now = new Date();
-    const ms = String(now.getMilliseconds()).padStart(3, "0");
-
-    const pdt = now.toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false });
-    const pdtDate = now.toLocaleDateString("en-US", { timeZone:"America/Los_Angeles", month:"short", day:"numeric", year:"numeric" });
-
-    const utc = now.toLocaleTimeString("en-US", { timeZone:"UTC", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false });
-    const utcDate = now.toLocaleDateString("en-US", { timeZone:"UTC", month:"short", day:"numeric", year:"numeric" });
-
-    document.getElementById("clock-pdt").innerHTML = `${pdtDate} &nbsp; ${pdt}.${ms} <span class="tz">PDT</span>`;
-    document.getElementById("clock-utc").innerHTML = `${utcDate} &nbsp; ${utc}.${ms} <span class="tz">UTC</span>`;
-  }
-  updateClock();
-  setInterval(updateClock, 50);
+fetchSeismogram();
+setInterval(fetchSeismogram, 30000);
 </script>
 </body>
 </html>
