@@ -185,6 +185,21 @@
     .eq-place { font-size: 0.71rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .eq-detail { font-size: 0.61rem; color: var(--text-dim); margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
     .eq-detail .mmi-val { color: #aac0d0; }
+    .seis-win-btn {
+      background: none;
+      border: 1px solid var(--border-bright);
+      border-radius: 2px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      padding: 2px 7px;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .seis-win-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .seis-win-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
     #usgs-updated { font-size: 0.59rem; color: var(--text-dim); margin-top: 9px; text-align: right; }
 
     /* SEISMOGRAM */
@@ -312,7 +327,7 @@
   <div class="tb-right">
     <a class="ig-link" href="https://www.instagram.com/myearthquake1/" target="_blank" rel="noopener">&#9654; @myearthquake1</a>
     <span class="tb-sep">|</span>
-    <a class="contact-btn" href="mailto:evanouou2020@gmail.com">Questions? Email us</a>
+    <a class="contact-btn" href="mailto:alt90228@gmail.com">Questions? Email us</a>
   </div>
 </div>
 
@@ -389,11 +404,18 @@
     </div>
     <canvas id="seis-canvas"></canvas>
     <div class="seis-info">
-      <span>Station B054 &mdash; Orinda, CA</span>
+      <span>
+        <a href="https://ds.iris.edu/mda/PB/B054/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">PB.B054</a>
+        &mdash; Berkeley Hills, CA &mdash; EHZ
+      </span>
       <span class="tb-sep">|</span>
-      <span>Channel: EHZ (short-period vertical)</span>
-      <span class="tb-sep">|</span>
-      <span>Source: IRIS / FDSN</span>
+      <span>Window:</span>
+      <span id="seis-win-btns" style="display:flex;gap:4px">
+        <button class="seis-win-btn active" onclick="setSeisWindow(5)">5m</button>
+        <button class="seis-win-btn" onclick="setSeisWindow(10)">10m</button>
+        <button class="seis-win-btn" onclick="setSeisWindow(30)">30m</button>
+        <button class="seis-win-btn" onclick="setSeisWindow(60)">60m</button>
+      </span>
       <span class="si-right" id="seis-time-range"></span>
     </div>
   </div>
@@ -459,7 +481,7 @@
 <!-- FOOTER -->
 <footer>
   <span>MyEarthquake Preliminary EWS &mdash; San Ramon, CA &mdash; Data: NTFY &amp; USGS &amp; IRIS</span>
-  <span><a href="mailto:evanouou2020@gmail.com">evanouou2020@gmail.com</a> &nbsp;|&nbsp; <a href="https://www.instagram.com/myearthquake1/" target="_blank" rel="noopener">@myearthquake1</a></span>
+  <span><a href="mailto:alt90228@gmail.com">alt90228@gmail.com</a> &nbsp;|&nbsp; <a href="https://www.instagram.com/myearthquake1/" target="_blank" rel="noopener">@myearthquake1</a></span>
 </footer>
 
 <script>
@@ -723,33 +745,78 @@ function drawWaveform(samples, meta) {
   }
   ctx.stroke();
 
-  // Time labels
-  if (meta) {
-    ctx.fillStyle = "#2a4050";
-    ctx.font = "10px 'Share Tech Mono', monospace";
-    ctx.textAlign = "left";
-    ctx.fillText(meta.startStr, 6, H - 6);
-    ctx.textAlign = "right";
-    ctx.fillText(meta.endStr, W - 6, H - 6);
-    ctx.textAlign = "center";
-    ctx.fillText(meta.sps + " sps  |  " + samples.length + " samples", W/2, H - 6);
+  // Time markers
+  if (meta && meta.startMs && meta.endMs) {
+    const totalMs = meta.endMs - meta.startMs;
+    const intervalMin = totalMs <= 6*60000 ? 1 : totalMs <= 12*60000 ? 2 : totalMs <= 35*60000 ? 5 : 10;
+    const intervalMs = intervalMin * 60000;
+
+    // Find first marker time (ceil to next interval boundary)
+    const firstMark = Math.ceil(meta.startMs / intervalMs) * intervalMs;
+
+    ctx.font = "9px 'Share Tech Mono', monospace";
+    for (let t = firstMark; t < meta.endMs; t += intervalMs) {
+      const x = ((t - meta.startMs) / totalMs) * W;
+      // Tick line
+      ctx.strokeStyle = "#1e3a50";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - 18); ctx.stroke();
+      // Label
+      const label = new Date(t).toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", hour12:false });
+      ctx.fillStyle = "#2a5060";
+      ctx.textAlign = "center";
+      ctx.fillText(label, x, H - 6);
+    }
+
   }
+
+  // Y-axis counts
+  const yAxisW = 48;
+  const maxCount = (halfRange * 1e8).toFixed(1); // scale to readable units
+  const ySteps = 4;
+  ctx.font = "8px 'Share Tech Mono', monospace";
+  ctx.textAlign = "right";
+  for (let i = 0; i <= ySteps; i++) {
+    const frac = i / ySteps;
+    const y = pad + frac * (H - pad * 2);
+    const val = ((1 - frac * 2) * halfRange * 1e8).toFixed(1);
+    ctx.fillStyle = "#1e3a4a";
+    ctx.fillText(val, W - 4, y + 3);
+    // Subtle horizontal rule
+    ctx.strokeStyle = "#0e1e28";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W - yAxisW, y); ctx.stroke();
+  }
+  // Unit label
+  ctx.fillStyle = "#1e3a4a";
+  ctx.font = "8px 'Share Tech Mono', monospace";
+  ctx.textAlign = "right";
+  ctx.fillText("×10⁻⁸", W - 4, H - 6);
 }
 
 function pdtStr(d) {
   return d.toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) + " PDT";
 }
 
-// Try multiple location codes in order — B054 has an empty location code
 const SEIS_CANDIDATES = [
   "net=PB&sta=B054&loc=&cha=EHZ",
   "net=PB&sta=B054&loc=--&cha=EHZ",
   "net=PB&sta=B054&loc=*&cha=EHZ",
 ];
 
+let seisMinutes = 5;
+
+function setSeisWindow(min) {
+  seisMinutes = min;
+  document.querySelectorAll(".seis-win-btn").forEach(b => {
+    b.classList.toggle("active", parseInt(b.textContent) === min);
+  });
+  fetchSeismogram();
+}
+
 async function fetchSeismogram() {
   const endTime = new Date();
-  const startTime = new Date(endTime.getTime() - 5 * 60 * 1000); // last 5 minutes
+  const startTime = new Date(endTime.getTime() - seisMinutes * 60 * 1000);
   const fmt = d => d.toISOString().slice(0, 19);
 
   let lastErr = "no candidates";
@@ -764,8 +831,7 @@ async function fetchSeismogram() {
       if (!text || text.trim().length === 0) { lastErr = "empty response"; continue; }
 
       const lines = text.trim().split("\n");
-      const header = lines[0];
-      const spsMatch = header.match(/([\d.]+)\s+sps/i);
+      const spsMatch = lines[0].match(/([\d.]+)\s+sps/i);
       const sps = spsMatch ? parseFloat(spsMatch[1]) : "?";
 
       const samples = [];
@@ -776,7 +842,13 @@ async function fetchSeismogram() {
       if (samples.length < 2) { lastErr = "no samples"; continue; }
 
       lastSamples = samples;
-      lastMeta = { sps, startStr: pdtStr(startTime), endStr: pdtStr(endTime) };
+      lastMeta = {
+        sps,
+        startMs: startTime.getTime(),
+        endMs: endTime.getTime(),
+        startStr: pdtStr(startTime),
+        endStr: pdtStr(endTime),
+      };
       drawWaveform(lastSamples, lastMeta);
       seisStatus.textContent = "live";
       seisStatus.className = "ok";
@@ -785,7 +857,6 @@ async function fetchSeismogram() {
     } catch (e) { lastErr = e.message; }
   }
 
-  // All candidates failed
   seisStatus.textContent = "unavailable — " + lastErr;
   seisStatus.className = "err";
   drawWaveform([], null);
