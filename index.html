@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>San Ramon Earthquake Alerts</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0d0d0d;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1a1a;
+      border-bottom: 2px solid #333;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    header h1 span {
+      color: #ff6b35;
+    }
+
+    #status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #555;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    #status-dot.connected { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+    #status-dot.connecting { background: #ff9800; animation: pulse 1s infinite; }
+    #status-dot.error { background: #f44336; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    #status-label {
+      font-size: 0.8rem;
+      color: #888;
+      margin-left: -8px;
+    }
+
+    main {
+      max-width: 760px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    #empty {
+      text-align: center;
+      color: #555;
+      margin-top: 80px;
+      font-size: 1rem;
+    }
+
+    #empty .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    #alerts { display: flex; flex-direction: column; gap: 14px; }
+
+    .alert-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-left: 4px solid #555;
+      border-radius: 8px;
+      padding: 16px 20px;
+      animation: slideIn 0.25s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .alert-card.priority-5 { border-left-color: #f44336; }
+    .alert-card.priority-4 { border-left-color: #ff9800; }
+    .alert-card.priority-3 { border-left-color: #ffeb3b; }
+    .alert-card.priority-2 { border-left-color: #4caf50; }
+    .alert-card.priority-1 { border-left-color: #9e9e9e; }
+
+    .alert-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .alert-title {
+      font-weight: 600;
+      font-size: 1rem;
+      flex: 1;
+    }
+
+    .alert-time {
+      font-size: 0.75rem;
+      color: #666;
+      white-space: nowrap;
+    }
+
+    .alert-message {
+      font-size: 0.9rem;
+      color: #bbb;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .alert-tags {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.72rem;
+      color: #aaa;
+    }
+
+    .priority-badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .pb-5 { background: #3d1515; color: #f44336; }
+    .pb-4 { background: #3d2a0a; color: #ff9800; }
+    .pb-3 { background: #3d3600; color: #ffeb3b; }
+    .pb-2 { background: #0d2e13; color: #4caf50; }
+    .pb-1 { background: #222; color: #9e9e9e; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div id="status-dot" class="connecting"></div>
+  <h1>San Ramon <span>Earthquake Alerts</span></h1>
+  <span id="status-label">connecting…</span>
+</header>
+
+<main>
+  <div id="empty">
+    <div class="icon">🌎</div>
+    <div>Listening for alerts on <code>early_earthquake_warning_san_ramon</code>…</div>
+  </div>
+  <div id="alerts"></div>
+</main>
+
+<script>
+  const NTFY_URL = "https://ntfy.sh/early_earthquake_warning_san_ramon/sse";
+
+  const dot = document.getElementById("status-dot");
+  const label = document.getElementById("status-label");
+  const alertsEl = document.getElementById("alerts");
+  const emptyEl = document.getElementById("empty");
+
+  const PRIORITY_LABELS = { 1: "min", 2: "low", 3: "default", 4: "high", 5: "max" };
+
+  function setStatus(state, text) {
+    dot.className = state;
+    label.textContent = text;
+  }
+
+  function formatTime(unixSeconds) {
+    const d = unixSeconds ? new Date(unixSeconds * 1000) : new Date();
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function renderAlert(msg) {
+    emptyEl.style.display = "none";
+
+    const priority = msg.priority || 3;
+    const tags = msg.tags || [];
+    const title = msg.title || "Alert";
+    const message = msg.message || "";
+
+    const card = document.createElement("div");
+    card.className = `alert-card priority-${priority}`;
+
+    const badgeClass = `pb-${priority}`;
+    const badgeLabel = PRIORITY_LABELS[priority] || "default";
+
+    card.innerHTML = `
+      <div class="alert-meta">
+        <span class="alert-title">${escHtml(title)}</span>
+        <span class="priority-badge ${badgeClass}">${badgeLabel}</span>
+        <span class="alert-time">${formatTime(msg.time)}</span>
+      </div>
+      ${message ? `<div class="alert-message">${escHtml(message)}</div>` : ""}
+      ${tags.length ? `<div class="alert-tags">${tags.map(t => `<span class="tag">${escHtml(t)}</span>`).join("")}</div>` : ""}
+    `;
+
+    alertsEl.insertBefore(card, alertsEl.firstChild);
+
+    // browser notification
+    if (Notification.permission === "granted") {
+      new Notification(title, { body: message, tag: msg.id });
+    }
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  function connect() {
+    setStatus("connecting", "connecting…");
+    const es = new EventSource(NTFY_URL);
+
+    es.onopen = () => setStatus("connected", "live");
+
+    es.addEventListener("message", e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.event === "message") renderAlert(msg);
+      } catch {}
+    });
+
+    es.onerror = () => {
+      setStatus("error", "reconnecting…");
+      es.close();
+      setTimeout(connect, 5000);
+    };
+  }
+
+  // request browser notification permission
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+
+  connect();
+</script>
+</body>
+</html>
