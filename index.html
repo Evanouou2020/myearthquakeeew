@@ -727,48 +727,55 @@ function pdtStr(d) {
   return d.toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) + " PDT";
 }
 
+// Try multiple location codes in order — B054 has an empty location code
+const SEIS_CANDIDATES = [
+  "net=PB&sta=B054&loc=&cha=EHZ",
+  "net=PB&sta=B054&loc=--&cha=EHZ",
+  "net=PB&sta=B054&loc=*&cha=EHZ",
+];
+
 async function fetchSeismogram() {
   const endTime = new Date();
-  const startTime = new Date(endTime.getTime() - 3 * 60 * 1000); // last 3 minutes
+  const startTime = new Date(endTime.getTime() - 5 * 60 * 1000); // last 5 minutes
+  const fmt = d => d.toISOString().slice(0, 19);
 
-  const fmt = d => d.toISOString().replace(/\.\d+Z$/, "");
-  const url = `https://service.iris.edu/irisws/timeseries/1/query` +
-    `?net=PB&sta=B054&loc=--&cha=EHZ` +
-    `&starttime=${fmt(startTime)}&endtime=${fmt(endTime)}` +
-    `&output=ascii1&demean=true&scale=auto`;
+  let lastErr = "no candidates";
+  for (const selector of SEIS_CANDIDATES) {
+    const url = `https://service.iris.edu/irisws/timeseries/1/query` +
+      `?${selector}&starttime=${fmt(startTime)}&endtime=${fmt(endTime)}` +
+      `&output=ascii1&demean=true&scale=auto`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) { lastErr = "HTTP " + res.status; continue; }
+      const text = await res.text();
+      if (!text || text.trim().length === 0) { lastErr = "empty response"; continue; }
 
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const text = await res.text();
-    const lines = text.trim().split("\n");
+      const lines = text.trim().split("\n");
+      const header = lines[0];
+      const spsMatch = header.match(/([\d.]+)\s+sps/i);
+      const sps = spsMatch ? parseFloat(spsMatch[1]) : "?";
 
-    // Parse header
-    const header = lines[0];
-    const spsMatch = header.match(/([\d.]+)\s+sps/i);
-    const sps = spsMatch ? parseFloat(spsMatch[1]) : "?";
+      const samples = [];
+      for (let i = 1; i < lines.length; i++) {
+        const v = parseFloat(lines[i].trim());
+        if (!isNaN(v)) samples.push(v);
+      }
+      if (samples.length < 2) { lastErr = "no samples"; continue; }
 
-    // Parse samples (skip header line, then read numbers)
-    const samples = [];
-    for (let i = 1; i < lines.length; i++) {
-      const v = parseFloat(lines[i].trim());
-      if (!isNaN(v)) samples.push(v);
-    }
-
-    if (samples.length === 0) throw new Error("empty");
-
-    lastSamples = samples;
-    lastMeta = { sps, startStr: pdtStr(startTime), endStr: pdtStr(endTime) };
-
-    drawWaveform(lastSamples, lastMeta);
-    seisStatus.textContent = "live";
-    seisStatus.className = "ok";
-    seisRange.textContent = `${pdtStr(startTime)} → ${pdtStr(endTime)}`;
-  } catch (e) {
-    seisStatus.textContent = "unavailable";
-    seisStatus.className = "err";
-    drawWaveform([], null);
+      lastSamples = samples;
+      lastMeta = { sps, startStr: pdtStr(startTime), endStr: pdtStr(endTime) };
+      drawWaveform(lastSamples, lastMeta);
+      seisStatus.textContent = "live";
+      seisStatus.className = "ok";
+      seisRange.textContent = `${pdtStr(startTime)} → ${pdtStr(endTime)}`;
+      return;
+    } catch (e) { lastErr = e.message; }
   }
+
+  // All candidates failed
+  seisStatus.textContent = "unavailable — " + lastErr;
+  seisStatus.className = "err";
+  drawWaveform([], null);
 }
 
 fetchSeismogram();
