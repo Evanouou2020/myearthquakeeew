@@ -372,6 +372,7 @@
     </div>
     <div style="padding:14px">
       <div id="usgs-list"><div style="color:var(--text-dim);font-size:0.72rem;text-align:center;padding:20px 0">Loading…</div></div>
+      <button id="usgs-toggle" onclick="toggleUSGS()" style="display:none;width:100%;margin-top:8px;background:none;border:1px solid var(--border);border-radius:2px;color:var(--text-dim);font-family:var(--mono);font-size:0.62rem;padding:6px;cursor:pointer;letter-spacing:0.06em;transition:border-color 0.2s,color 0.2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'"></button>
       <div id="usgs-updated"></div>
     </div>
   </div>
@@ -424,7 +425,7 @@
           <div class="kv"><span class="k">Operator</span><span class="v">Evan Li</span></div>
           <div class="kv"><span class="k">Status</span><span class="v">Experimental / Test</span></div>
           <div class="kv"><span class="k">Alert Source</span><span class="v">NTFY (early_earthquake_warning_san_ramon)</span></div>
-          <div class="kv"><span class="k">Waveform Source</span><span class="v">IRIS FDSN / BK Network</span></div>
+          <div class="kv"><span class="k">Waveform Source</span><span class="v">IRIS FDSN / PB Network</span></div>
           <div class="kv"><span class="k">Seismic Catalog</span><span class="v">USGS FDSN Web Services</span></div>
         </div>
       </div>
@@ -577,6 +578,50 @@ function mmiLabel(mmi) {
 function formatEqTime(epochMs) {
   return new Date(epochMs).toLocaleString("en-US", { timeZone:"America/Los_Angeles", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) + " PDT";
 }
+let usgsExpanded = false;
+let usgsRows = [];
+
+function buildEqRow(f) {
+  const p = f.properties;
+  const mag = p.mag != null ? p.mag.toFixed(1) : "?";
+  const depth = f.geometry.coordinates[2] != null ? f.geometry.coordinates[2].toFixed(1) : "?";
+  const mmi = mmiLabel(p.mmi);
+  const row = document.createElement("a");
+  row.className = "eq-row";
+  row.href = p.url || "#";
+  row.target = "_blank"; row.rel = "noopener";
+  let detail = [`Depth: ${depth} km`, formatEqTime(p.time)];
+  if (mmi) detail.push(`<span class="mmi-val">Max Intensity: ${mmi}</span>`);
+  row.innerHTML = `
+    <div class="eq-mag ${magClass(parseFloat(mag))}">M${mag}</div>
+    <div class="eq-info">
+      <div class="eq-place">${escHtml(p.place || "Unknown")}</div>
+      <div class="eq-detail">${detail.join('<span style="color:var(--border-bright)"> &middot; </span>')}</div>
+    </div>`;
+  return row;
+}
+
+function renderUSGSRows() {
+  const listEl = document.getElementById("usgs-list");
+  listEl.innerHTML = "";
+  const visible = usgsExpanded ? usgsRows : usgsRows.slice(0, 3);
+  visible.forEach(f => listEl.appendChild(buildEqRow(f)));
+  const btn = document.getElementById("usgs-toggle");
+  if (usgsRows.length > 3) {
+    btn.style.display = "block";
+    btn.textContent = usgsExpanded
+      ? `▲ Show less`
+      : `▼ Show all ${usgsRows.length} earthquakes`;
+  } else {
+    btn.style.display = "none";
+  }
+}
+
+function toggleUSGS() {
+  usgsExpanded = !usgsExpanded;
+  renderUSGSRows();
+}
+
 async function fetchUSGS() {
   const url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson" +
     "&minlatitude=32.5&maxlatitude=42.0&minlongitude=-124.5&maxlongitude=-114.0" +
@@ -584,27 +629,8 @@ async function fetchUSGS() {
   try {
     const res = await fetch(url);
     const data = await res.json();
-    const listEl = document.getElementById("usgs-list");
-    listEl.innerHTML = "";
-    data.features.forEach(f => {
-      const p = f.properties;
-      const mag = p.mag != null ? p.mag.toFixed(1) : "?";
-      const depth = f.geometry.coordinates[2] != null ? f.geometry.coordinates[2].toFixed(1) : "?";
-      const mmi = mmiLabel(p.mmi);
-      const row = document.createElement("a");
-      row.className = "eq-row";
-      row.href = p.url || "#";
-      row.target = "_blank"; row.rel = "noopener";
-      let detail = [`Depth: ${depth} km`, formatEqTime(p.time)];
-      if (mmi) detail.push(`<span class="mmi-val">Max Intensity: ${mmi}</span>`);
-      row.innerHTML = `
-        <div class="eq-mag ${magClass(parseFloat(mag))}">M${mag}</div>
-        <div class="eq-info">
-          <div class="eq-place">${escHtml(p.place || "Unknown")}</div>
-          <div class="eq-detail">${detail.join('<span style="color:var(--border-bright)"> &middot; </span>')}</div>
-        </div>`;
-      listEl.appendChild(row);
-    });
+    usgsRows = data.features;
+    renderUSGSRows();
     document.getElementById("usgs-updated").textContent =
       "Updated " + new Date().toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) + " PDT";
   } catch {
@@ -707,7 +733,7 @@ async function fetchSeismogram() {
 
   const fmt = d => d.toISOString().replace(/\.\d+Z$/, "");
   const url = `https://service.iris.edu/irisws/timeseries/1/query` +
-    `?net=BK&sta=B054&loc=--&cha=EHZ` +
+    `?net=PB&sta=B054&loc=--&cha=EHZ` +
     `&starttime=${fmt(startTime)}&endtime=${fmt(endTime)}` +
     `&output=ascii1&demean=true&scale=auto`;
 
