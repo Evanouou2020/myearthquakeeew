@@ -398,7 +398,7 @@ let gravX = 0, gravY = 0, gravZ = 9.8;
 let velX = 0, velY = 0, velZ = 0;
 let noiseFloor = 0.02; // Gal
 let calibrating = false, calibSamples = [];
-let lastEvent = 0, lastDisplay = 0;
+let lastEvent = 0, lastChartUpdate = 0, lastMetricUpdate = 0;
 
 // Instantaneous live values (current sample)
 let currentPGA = 0, currentPGV = 0;
@@ -516,27 +516,36 @@ function onMotion(e) {
     max_mmi_pgv: +mmiFromPGV(maxPGV).toFixed(3),
   });
 
-  if (now - lastDisplay > 80) { lastDisplay = now; updateDisplay(aX, aY, aZ); }
+  // Chart updates fast (~80ms), metrics update slowly (250ms) so they're readable
+  const doChart   = now - lastChartUpdate  > 80;
+  const doMetrics = now - lastMetricUpdate > 250;
+  if (doChart || doMetrics) {
+    if (doChart)   lastChartUpdate  = now;
+    if (doMetrics) lastMetricUpdate = now;
+    updateDisplay(aX, aY, aZ, doChart, doMetrics);
+  }
 }
 
 // ── Display ────────────────────────────────────────────────────────────────
-function updateDisplay(aX, aY, aZ) {
-  // Chart
-  const xs=[], ys=[], zs=[], vs=[];
-  for (let i = 0; i < MAX_PTS; i++) {
-    const idx = (ptr + i) % MAX_PTS;
-    xs.push(dX[idx]); ys.push(dY[idx]); zs.push(dZ[idx]); vs.push(dV[idx]);
-  }
-  chart.data.datasets[0].data = xs;
-  chart.data.datasets[1].data = ys;
-  chart.data.datasets[2].data = zs;
-  chart.data.datasets[3].data = vs;
-  chart.update('none');
+function updateDisplay(aX, aY, aZ, doChart, doMetrics) {
+  if (doChart) {
+    const xs=[], ys=[], zs=[], vs=[];
+    for (let i = 0; i < MAX_PTS; i++) {
+      const idx = (ptr + i) % MAX_PTS;
+      xs.push(dX[idx]); ys.push(dY[idx]); zs.push(dZ[idx]); vs.push(dV[idx]);
+    }
+    chart.data.datasets[0].data = xs;
+    chart.data.datasets[1].data = ys;
+    chart.data.datasets[2].data = zs;
+    chart.data.datasets[3].data = vs;
+    chart.update('none');
 
-  // Axis bars (±15 Gal = full bar)
-  setBar('bar-x', 'val-x', aX, 15);
-  setBar('bar-y', 'val-y', aY, 15);
-  setBar('bar-z', 'val-z', aZ, 15);
+    setBar('bar-x', 'val-x', aX, 15);
+    setBar('bar-y', 'val-y', aY, 15);
+    setBar('bar-z', 'val-z', aZ, 15);
+  }
+
+  if (!doMetrics) return;
 
   // Choose values based on mode
   const isMax = displayMode === 'max';
@@ -679,13 +688,18 @@ async function requestAndStart() {
       alert('Motion permission denied.\niPhone: Settings → Safari → Motion & Orientation Access'); return;
     }
   }
-  running = true; lastTime = null;
-  listener = onMotion;
-  window.addEventListener('devicemotion', listener, { passive: true });
+  // Show app UI immediately but delay sensor start 0.5s so tap vibration decays
   document.getElementById('perm-screen').style.display = 'none';
   document.getElementById('app').classList.add('visible');
-  document.getElementById('status-dot').classList.add('active');
-  document.getElementById('status-text').textContent = 'LIVE';
+  document.getElementById('status-text').textContent = 'READY…';
+
+  setTimeout(() => {
+    running = true; lastTime = null;
+    listener = onMotion;
+    window.addEventListener('devicemotion', listener, { passive: true });
+    document.getElementById('status-dot').classList.add('active');
+    document.getElementById('status-text').textContent = 'LIVE';
+  }, 500);
 }
 
 function togglePause() {
