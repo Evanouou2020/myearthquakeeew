@@ -18,7 +18,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 WS_PORT   = 8765
-HTTP_PORT = 8080
+HTTP_PORT = 8787
 
 # ── Shared state ───────────────────────────────────────────────────────────
 viewers: set = set()
@@ -195,15 +195,15 @@ DASHBOARD = r"""<!DOCTYPE html>
       </div>
       <div style="height:6px"></div>
       <div class="scale-row">
-        <div class="scale-seg" style="background:#333;flex:2"></div>
-        <div class="scale-seg" style="background:#66aaff"></div>
-        <div class="scale-seg" style="background:#44ddaa"></div>
-        <div class="scale-seg" style="background:#aadd44"></div>
-        <div class="scale-seg" style="background:#ffdd00"></div>
-        <div class="scale-seg" style="background:#ffaa00"></div>
+        <div class="scale-seg" style="background:#999999;flex:2"></div>
+        <div class="scale-seg" style="background:#99aaff"></div>
+        <div class="scale-seg" style="background:#80ffff"></div>
+        <div class="scale-seg" style="background:#7fff00"></div>
+        <div class="scale-seg" style="background:#ffff00"></div>
+        <div class="scale-seg" style="background:#ffa500"></div>
         <div class="scale-seg" style="background:#ff6600"></div>
-        <div class="scale-seg" style="background:#ff3300"></div>
-        <div class="scale-seg" style="background:#cc00cc"></div>
+        <div class="scale-seg" style="background:#ff4500"></div>
+        <div class="scale-seg" style="background:#880000"></div>
       </div>
       <div class="scale-lbl"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5−</span><span>5+</span><span>6−</span><span>6+</span><span>7</span></div>
     </div>
@@ -225,7 +225,7 @@ function shindoFloat(pgaGal) {
 }
 const SHINDO_BOUNDS = [0.5,1.5,2.5,3.5,4.5,5.0,5.5,6.0,6.5];
 const SHINDO_LABELS = ['0','1','2','3','4','5−','5+','6−','6+','7'];
-const SHINDO_COLORS = ['#555','#66aaff','#44ddaa','#aadd44','#ffdd00','#ffaa00','#ff6600','#ff3300','#dd0000','#cc00cc'];
+const SHINDO_COLORS = ['#999999','#99aaff','#80ffff','#7fff00','#ffff00','#ffa500','#ff6600','#ff4500','#ff0000','#880000'];
 function shindoIndex(I) {
   if (I === null || I === undefined) return -1;
   for (let i=0;i<SHINDO_BOUNDS.length;i++) if (I<SHINDO_BOUNDS[i]) return i;
@@ -545,7 +545,11 @@ async def main():
     print()
 
     threading.Thread(target=run_http, daemon=True).start()
-    webbrowser.open(f'http://localhost:{HTTP_PORT}')
+    print(f'  ┌─────────────────────────────────────────────┐')
+    print(f'  │  Open this in your browser on this computer │')
+    print(f'  │  →  http://localhost:{HTTP_PORT}                  │')
+    print(f'  └─────────────────────────────────────────────┘')
+    print()
 
     async with websockets.serve(ws_handler, '0.0.0.0', WS_PORT):
         await asyncio.Future()

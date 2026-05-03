@@ -254,7 +254,7 @@
 
   <!-- Live / Max toggle — full width, hard to miss -->
   <div class="mode-bar">
-    <button class="mode-btn on" id="btn-live">● LIVE&nbsp;&nbsp;(3s window)</button>
+    <button class="mode-btn on" id="btn-live">● LIVE&nbsp;&nbsp;(instant)</button>
     <button class="mode-btn"    id="btn-max">▲ MAX&nbsp;&nbsp;<span id="max-hint" style="font-size:.62rem;font-weight:400;opacity:.7"></span></button>
   </div>
 
@@ -288,15 +288,15 @@
   </div>
 
   <div class="scale-row">
-    <div class="scale-seg" style="background:#333;flex:2"></div>
-    <div class="scale-seg" style="background:#66aaff"></div>
-    <div class="scale-seg" style="background:#44ddaa"></div>
-    <div class="scale-seg" style="background:#aadd44"></div>
-    <div class="scale-seg" style="background:#ffdd00"></div>
-    <div class="scale-seg" style="background:#ffaa00"></div>
+    <div class="scale-seg" style="background:#999999;flex:2"></div>
+    <div class="scale-seg" style="background:#99aaff"></div>
+    <div class="scale-seg" style="background:#80ffff"></div>
+    <div class="scale-seg" style="background:#7fff00"></div>
+    <div class="scale-seg" style="background:#ffff00"></div>
+    <div class="scale-seg" style="background:#ffa500"></div>
     <div class="scale-seg" style="background:#ff6600"></div>
-    <div class="scale-seg" style="background:#ff3300"></div>
-    <div class="scale-seg" style="background:#cc00cc"></div>
+    <div class="scale-seg" style="background:#ff4500"></div>
+    <div class="scale-seg" style="background:#880000"></div>
   </div>
   <div class="scale-lbl">
     <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
@@ -358,7 +358,8 @@ function shindoFloat(pgaGal) {
 // JMA Shindo level thresholds (I_inst → discrete label)
 const SHINDO_BOUNDS = [0.5, 1.5, 2.5, 3.5, 4.5, 5.0, 5.5, 6.0, 6.5];
 const SHINDO_LABELS = ['0', '1', '2', '3', '4', '5−', '5+', '6−', '6+', '7'];
-const SHINDO_COLORS = ['#555','#66aaff','#44ddaa','#aadd44','#ffdd00','#ffaa00','#ff6600','#ff3300','#dd0000','#cc00cc'];
+// USGS ShakeMap color scale mapped to Shindo/MMI levels
+const SHINDO_COLORS = ['#999999','#99aaff','#80ffff','#7fff00','#ffff00','#ffa500','#ff6600','#ff4500','#ff0000','#880000'];
 
 function shindoIndex(I) {
   if (I === null || I === undefined) return -1;
@@ -399,9 +400,8 @@ let noiseFloor = 0.02; // Gal
 let calibrating = false, calibSamples = [];
 let lastEvent = 0, lastDisplay = 0;
 
-// 3-second rolling window → "live" display
-let liveBuf = [];  // {t, pga, pgv}
-let livePGA = 0, livePGV = 0;
+// Instantaneous live values (current sample)
+let currentPGA = 0, currentPGV = 0;
 
 // Session maximum
 let maxPGA = 0, maxPGV = 0, maxTime = null;
@@ -476,12 +476,9 @@ function onMotion(e) {
   dX[ptr] = aX; dY[ptr] = aY; dZ[ptr] = aZ; dV[ptr] = vec;
   ptr = (ptr + 1) % MAX_PTS;
 
-  // ── Live window (3s rolling max) ────────────────────────────────────────
-  liveBuf.push({ t: now, pga: vec, pgv: velMag });
-  const liveCut = now - LIVE_WIN_MS;
-  while (liveBuf.length && liveBuf[0].t < liveCut) liveBuf.shift();
-  livePGA = liveBuf.reduce((m, p) => Math.max(m, p.pga), 0);
-  livePGV = liveBuf.reduce((m, p) => Math.max(m, p.pgv), 0);
+  // ── Instantaneous live values ────────────────────────────────────────────
+  currentPGA = vec;
+  currentPGV = velMag;
 
   // ── Session max ─────────────────────────────────────────────────────────
   if (vec > maxPGA) {
@@ -503,19 +500,17 @@ function onMotion(e) {
   }
 
   // Prepare WS packet
-  const si   = shindoFloat(livePGA);
-  const mPGA = mmiFromPGA(livePGA);
-  const mPGV = mmiFromPGV(livePGV);
+  const si   = shindoFloat(currentPGA);
+  const mPGA = mmiFromPGA(currentPGA);
+  const mPGV = mmiFromPGV(currentPGV);
   wsSendBuf = JSON.stringify({
     t: Date.now(),
     ax: +aX.toFixed(3), ay: +aY.toFixed(3), az: +aZ.toFixed(3), vec: +vec.toFixed(3),
-    // live
-    live_pga: +livePGA.toFixed(3), live_pgv: +livePGV.toFixed(4),
+    live_pga: +currentPGA.toFixed(3), live_pgv: +currentPGV.toFixed(4),
     live_shindo_i: si !== null ? +si.toFixed(3) : null,
     live_shindo: si !== null ? SHINDO_LABELS[shindoIndex(si)] : null,
     live_mmi_pga: +mPGA.toFixed(3),
     live_mmi_pgv: +mPGV.toFixed(3),
-    // session max
     max_pga: +maxPGA.toFixed(3), max_pgv: +maxPGV.toFixed(4),
     max_mmi_pga: +mmiFromPGA(maxPGA).toFixed(3),
     max_mmi_pgv: +mmiFromPGV(maxPGV).toFixed(3),
@@ -545,8 +540,8 @@ function updateDisplay(aX, aY, aZ) {
 
   // Choose values based on mode
   const isMax = displayMode === 'max';
-  const pga   = isMax ? maxPGA  : livePGA;
-  const pgv   = isMax ? maxPGV  : livePGV;
+  const pga   = isMax ? maxPGA  : currentPGA;
+  const pgv   = isMax ? maxPGV  : currentPGV;
   const si    = shindoFloat(pga);
   const siIdx = shindoIndex(si);
   const mPGA  = mmiFromPGA(pga);
@@ -711,7 +706,7 @@ function resetMax() {
     if (countdown > 0) { btn.textContent = `Hold… ${countdown}s`; return; }
     clearInterval(tick);
     maxPGA = 0; maxPGV = 0; maxTime = null;
-    liveBuf = []; livePGA = 0; livePGV = 0;
+    currentPGA = 0; currentPGV = 0;
     velX = 0; velY = 0; velZ = 0;
     document.getElementById('max-hint').textContent = '';
     btn.textContent = 'Reset Max';
