@@ -864,7 +864,36 @@ function makeCompositeStream() {
   const ctx = rc.getContext('2d');
   const chartCv = document.getElementById('chart');
 
+  // 1-second snapshot — large readable values in the recording
+  let snap = null, lastSnap = 0;
+  function takeSnap() {
+    const pga  = displayMode === 'max' ? maxPGA : currentPGA;
+    const pgv  = displayMode === 'max' ? maxPGV : currentPGV;
+    const si   = shindoFloat(pga);
+    const siIdx = shindoIndex(si);
+    const mPGA = mmiFromPGA(pga);
+    const mPGV = mmiFromPGV(pgv);
+    snap = [
+      { label:'PGA',    big: pga.toFixed(2),  raw: currentPGA.toFixed(3),  unit:'Gal',
+        color: pga>20?'#e74c3c':pga>2?'#f39c12':'#44aaff' },
+      { label:'PGV',    big: pgv.toFixed(3),  raw: currentPGV.toFixed(4),  unit:'cm/s',
+        color: pgv>1?'#f39c12':'#44aaff' },
+      { label:'SHINDO', big: si!==null?Math.max(0,si).toFixed(2):'—',
+        raw: si!==null?'live '+shindoFloat(currentPGA)?.toFixed(3):'—',
+        unit: si!==null?'JMA '+SHINDO_LABELS[Math.max(0,siIdx)]:'',
+        color: si!==null?SHINDO_COLORS[Math.max(0,siIdx)]:'#5a607a' },
+      { label:'MMI',    big: mPGA.toFixed(2),
+        raw: 'live '+mmiFromPGA(currentPGA).toFixed(3)+'  PGV→'+mmiFromPGV(currentPGV).toFixed(3),
+        unit:(MMI_ROMAN[Math.round(mPGA)]||'I')+' '+(MMI_DESC[Math.round(mPGA)]||''),
+        color: mPGA>6?'#e74c3c':mPGA>4?'#f39c12':'#44aaff' },
+    ];
+  }
+  takeSnap();
+
   function draw() {
+    const now = performance.now();
+    if (now - lastSnap >= 1000) { takeSnap(); lastSnap = now; }
+
     ctx.fillStyle = '#080812'; ctx.fillRect(0, 0, W, H);
 
     // Title + clock
@@ -878,14 +907,6 @@ function makeCompositeStream() {
     ctx.drawImage(chartCv, 0, 96, W, 360);
     ctx.fillStyle = '#1e1e3a'; ctx.fillRect(0, 456, W, 1);
 
-    // Choose values based on mode
-    const pga  = displayMode === 'max' ? maxPGA    : currentPGA;
-    const pgv  = displayMode === 'max' ? maxPGV    : currentPGV;
-    const si   = shindoFloat(pga);
-    const siIdx = shindoIndex(si);
-    const mPGA = mmiFromPGA(pga);
-    const mPGV = mmiFromPGV(pgv);
-
     // Mode badge
     const mLabel = displayMode === 'max' ? 'MAX' : 'LIVE';
     ctx.fillStyle = displayMode === 'max' ? 'rgba(243,156,18,.25)' : 'rgba(68,170,255,.18)';
@@ -894,29 +915,22 @@ function makeCompositeStream() {
     ctx.font = 'bold 18px monospace'; ctx.textAlign = 'right';
     ctx.fillText(mLabel, W-26, 482); ctx.textAlign = 'left';
 
-    const rows = [
-      { label:'PGA',    val: pga.toFixed(2),              unit:'Gal (cm/s²)',
-        color: pga>20?'#e74c3c':pga>2?'#f39c12':'#44aaff' },
-      { label:'PGV',    val: pgv.toFixed(3),              unit:'cm/s  integrated',
-        color: pgv>1?'#f39c12':'#44aaff' },
-      { label:'SHINDO', val: si!==null?Math.max(0,si).toFixed(2):'—',
-        unit: si!==null?'JMA '+SHINDO_LABELS[Math.max(0,siIdx)]:'',
-        color: si!==null?SHINDO_COLORS[Math.max(0,siIdx)]:'#5a607a' },
-      { label:'MMI',    val: mPGA.toFixed(2),
-        unit:(MMI_ROMAN[Math.round(mPGA)]||'I')+' '+
-             (MMI_DESC[Math.round(mPGA)]||'')+'  PGV→'+mPGV.toFixed(2),
-        color: mPGA>6?'#e74c3c':mPGA>4?'#f39c12':'#44aaff' },
-    ];
-    const cellH = 190, startY = 470;
-    rows.forEach((r, i) => {
+    const cellH = 200, startY = 470;
+    snap.forEach((r, i) => {
       const y = startY + i * cellH;
       if (i) { ctx.fillStyle='#1e1e3a'; ctx.fillRect(24, y-6, W-48, 1); }
+      // label
       ctx.fillStyle = '#5a607a'; ctx.font = '20px monospace';
-      ctx.fillText(r.label, 24, y+26);
-      ctx.fillStyle = r.color; ctx.font = 'bold 96px monospace';
-      ctx.fillText(r.val, 24, y+124);
-      ctx.fillStyle = '#5a607a'; ctx.font = '22px monospace';
-      ctx.fillText(r.unit, 24, y+158);
+      ctx.fillText(r.label, 24, y+24);
+      // big 1s-snapshot value
+      ctx.fillStyle = r.color; ctx.font = 'bold 88px monospace';
+      ctx.fillText(r.big, 24, y+116);
+      // unit
+      ctx.fillStyle = r.color; ctx.font = '22px monospace';
+      ctx.fillText(r.unit, 24, y+148);
+      // raw live value (smaller, dimmer)
+      ctx.fillStyle = '#3a4060'; ctx.font = '18px monospace';
+      ctx.fillText('raw: ' + r.raw, 24, y+174);
     });
   }
 
