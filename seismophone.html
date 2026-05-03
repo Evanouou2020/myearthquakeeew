@@ -59,6 +59,18 @@
   }
   .icon-btn.active, .icon-btn:hover { color: var(--accent); }
 
+  /* ── Clock bar ── */
+  #clock-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 3px 14px;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    font-size: .62rem; letter-spacing: .06em; color: var(--dim);
+    flex-shrink: 0;
+  }
+  #clock-bar span { display: flex; gap: 5px; }
+  #clock-bar .tz  { color: #3a4060; text-transform: uppercase; }
+  #clock-bar .t   { color: var(--text); font-variant-numeric: tabular-nums; }
+
   /* ── Permission screen ── */
   #perm-screen {
     display: flex; flex-direction: column;
@@ -212,6 +224,11 @@
     <div id="status-dot"></div>
   </div>
 </header>
+
+<div id="clock-bar">
+  <span><span class="tz">UTC</span><span class="t" id="clock-utc">—</span></span>
+  <span><span class="tz">PT&nbsp;</span><span class="t" id="clock-pt">—</span></span>
+</div>
 
 <!-- Start screen -->
 <div id="perm-screen">
@@ -849,6 +866,27 @@ document.getElementById('install-btn').addEventListener('click', async () => {
   if (outcome === 'accepted') document.getElementById('install-btn').style.display = 'none';
   deferredPrompt = null;
 });
+
+// ── Live clock (UTC + Pacific Time, ms precision) ─────────────────────────
+(function tickClock() {
+  const utcEl = document.getElementById('clock-utc');
+  const ptEl  = document.getElementById('clock-pt');
+  const ptFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+  function update() {
+    const now = new Date();
+    const ms  = String(now.getMilliseconds()).padStart(3, '0');
+    const uh  = String(now.getUTCHours()).padStart(2, '0');
+    const um  = String(now.getUTCMinutes()).padStart(2, '0');
+    const us  = String(now.getUTCSeconds()).padStart(2, '0');
+    utcEl.textContent = `${uh}:${um}:${us}.${ms}`;
+    ptEl.textContent  = `${ptFmt.format(now)}.${ms}`;
+  }
+  update();
+  setInterval(update, 50);
+})();
 
 // ── Service worker ─────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
