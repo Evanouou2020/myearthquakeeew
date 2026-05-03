@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SeismoPhone">
+<meta name="theme-color" content="#080812">
+<title>SeismoPhone</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #080812;
+    --surface:  #10101e;
+    --border:   #1e1e3a;
+    --accent:   #4af;
+    --green:    #2ecc71;
+    --red:      #e74c3c;
+    --amber:    #f39c12;
+    --purple:   #9b59b6;
+    --text:     #c8d0e8;
+    --dim:      #5a607a;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 10px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+  .logo span { color: var(--dim); font-weight: 400; font-size: 0.75rem; margin-left: 6px; }
+  #status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--dim);
+    box-shadow: 0 0 0 3px transparent;
+    transition: background 0.3s, box-shadow 0.3s;
+    flex-shrink: 0;
+  }
+  #status-dot.active {
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 1.5s infinite;
+  }
+  #status-dot.event {
+    background: var(--red);
+    box-shadow: 0 0 12px var(--red);
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .status-label {
+    font-size: 0.65rem;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-right: 8px;
+  }
+  .status-row { display: flex; align-items: center; gap: 6px; }
+
+  /* ── Permission screen ── */
+  #perm-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100dvh - 50px);
+    padding: 32px 24px;
+    text-align: center;
+    gap: 20px;
+  }
+  #perm-screen h2 { font-size: 1.4rem; color: var(--accent); }
+  #perm-screen p { font-size: 0.85rem; color: var(--dim); line-height: 1.6; max-width: 320px; }
+  #perm-screen .warning {
+    background: #1a0a00;
+    border: 1px solid var(--amber);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 0.78rem;
+    color: var(--amber);
+    max-width: 340px;
+  }
+
+  /* ── Main app (hidden until started) ── */
+  #app { display: none; flex-direction: column; height: calc(100dvh - 50px); overflow: hidden; }
+  #app.visible { display: flex; }
+
+  /* ── Chart ── */
+  .chart-wrap {
+    flex: 1 1 auto;
+    position: relative;
+    min-height: 0;
+    padding: 8px 4px 0;
+    background: var(--surface);
+  }
+  .chart-labels {
+    display: flex;
+    gap: 14px;
+    padding: 4px 12px;
+    font-size: 0.65rem;
+    color: var(--dim);
+    letter-spacing: 0.06em;
+  }
+  .chart-labels span { display: flex; align-items: center; gap: 5px; }
+  .chart-labels .dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  /* ── Metrics grid ── */
+  .metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 4px 8px;
+    border-right: 1px solid var(--border);
+    gap: 2px;
+    position: relative;
+  }
+  .metric:last-child { border-right: none; }
+  .metric-label {
+    font-size: 0.6rem;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .metric-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--accent);
+    transition: color 0.3s;
+  }
+  .metric-unit {
+    font-size: 0.55rem;
+    color: var(--dim);
+    margin-top: 1px;
+  }
+  .metric-value.elevated { color: var(--amber); }
+  .metric-value.high { color: var(--red); }
+
+  /* Shindo special display */
+  #shindo-val {
+    font-size: 1.6rem;
+  }
+  #mmi-val {
+    font-size: 1.1rem;
+  }
+
+  /* ── Axis bars ── */
+  .axis-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .axis-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.65rem;
+  }
+  .axis-name { width: 12px; color: var(--dim); }
+  .axis-track {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .axis-bar {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.08s linear, left 0.08s linear;
+  }
+  .axis-val { width: 48px; text-align: right; font-size: 0.62rem; color: var(--dim); }
+
+  /* ── Controls ── */
+  .controls {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px 10px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  button {
+    flex: 1;
+    padding: 10px 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    -webkit-appearance: none;
+  }
+  button:active { background: var(--border); }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 700;
+  }
+  button.primary:active { opacity: 0.8; }
+  button.danger {
+    border-color: var(--red);
+    color: var(--red);
+  }
+  button.danger:active { background: #1a0505; }
+
+  /* ── Event log ── */
+  .event-log-wrap {
+    flex-shrink: 0;
+    max-height: 60px;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .event-log-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 12px;
+    font-size: 0.62rem;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn 0.3s;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+  .event-log-item .evt-time { color: var(--dim); }
+  .event-log-item .evt-info { color: var(--amber); }
+  .event-log-item .evt-shindo { color: var(--red); font-weight: 700; }
+
+  /* ── Scale reference ── */
+  .scale-row {
+    display: flex;
+    align-items: center;
+    padding: 5px 12px;
+    gap: 3px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .scale-seg {
+    flex: 1;
+    height: 5px;
+    border-radius: 2px;
+  }
+  .scale-labels {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 12px 4px;
+    font-size: 0.55rem;
+    color: var(--dim);
+  }
+
+  /* iOS safe area */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .controls { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SeismoPhone <span>accelerometer</span></div>
+  <div class="status-row">
+    <span class="status-label" id="status-text">IDLE</span>
+    <div id="status-dot"></div>
+  </div>
+</header>
+
+<!-- Permission / Start screen -->
+<div id="perm-screen">
+  <h2>📳 SeismoPhone</h2>
+  <p>Turn your phone into a seismometer. Measures acceleration and computes PGA, PGV, Shindo intensity, and MMI in real time.</p>
+  <div class="warning">
+    ⚠️ On iPhone, tap <strong>Enable Sensor</strong> to grant motion access.<br>
+    Keep the phone flat on a stable surface for best results.
+  </div>
+  <button class="primary" id="start-btn" style="max-width:260px;padding:14px 20px;font-size:0.85rem;">
+    Enable Sensor &amp; Start
+  </button>
+  <p style="font-size:0.7rem;color:var(--dim);margin-top:4px;">
+    Add to Home Screen to install as app
+  </p>
+</div>
+
+<!-- Main app -->
+<div id="app">
+
+  <div class="chart-wrap">
+    <canvas id="chart"></canvas>
+  </div>
+  <div class="chart-labels">
+    <span><span class="dot" style="background:#4af"></span>X-axis</span>
+    <span><span class="dot" style="background:#2ecc71"></span>Y-axis</span>
+    <span><span class="dot" style="background:#e74c3c"></span>Z-axis</span>
+    <span><span class="dot" style="background:#f39c12"></span>Vector</span>
+  </div>
+
+  <!-- Axis level bars -->
+  <div class="axis-bars">
+    <div class="axis-row">
+      <span class="axis-name">X</span>
+      <div class="axis-track">
+        <div class="axis-bar" id="bar-x" style="background:#4af;width:0%;left:50%"></div>
+      </div>
+      <span class="axis-val" id="val-x">0.00</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-name">Y</span>
+      <div class="axis-track">
+        <div class="axis-bar" id="bar-y" style="background:#2ecc71;width:0%;left:50%"></div>
+      </div>
+      <span class="axis-val" id="val-y">0.00</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-name">Z</span>
+      <div class="axis-track">
+        <div class="axis-bar" id="bar-z" style="background:#e74c3c;width:0%;left:50%"></div>
+      </div>
+      <span class="axis-val" id="val-z">0.00</span>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="metric">
+      <span class="metric-label">PGA</span>
+      <span class="metric-value" id="pga-val">0.00</span>
+      <span class="metric-unit">Gal (cm/s²)</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">PGV</span>
+      <span class="metric-value" id="pgv-val">0.000</span>
+      <span class="metric-unit">cm/s</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Shindo</span>
+      <span class="metric-value" id="shindo-val">—</span>
+      <span class="metric-unit">JMA scale</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">MMI</span>
+      <span class="metric-value" id="mmi-val">I</span>
+      <span class="metric-unit">Mercalli</span>
+    </div>
+  </div>
+
+  <!-- Shindo color scale reference -->
+  <div class="scale-row">
+    <div class="scale-seg" style="background:#444;flex:2"></div>
+    <div class="scale-seg" style="background:#66aaff"></div>
+    <div class="scale-seg" style="background:#44ddaa"></div>
+    <div class="scale-seg" style="background:#aadd44"></div>
+    <div class="scale-seg" style="background:#ffdd00"></div>
+    <div class="scale-seg" style="background:#ffaa00"></div>
+    <div class="scale-seg" style="background:#ff6600"></div>
+    <div class="scale-seg" style="background:#ff2200"></div>
+    <div class="scale-seg" style="background:#cc00cc"></div>
+  </div>
+  <div class="scale-labels">
+    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5-</span><span>5+</span><span>6-</span><span>6+</span><span>7</span>
+  </div>
+
+  <!-- Event log -->
+  <div class="event-log-wrap" id="event-log"></div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button id="pause-btn">Pause</button>
+    <button class="danger" id="reset-btn">Reset Peak</button>
+    <button id="calib-btn">Calibrate</button>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────
+//  Constants & state
+// ─────────────────────────────────────────────
+const CHART_SECONDS = 30;
+const SAMPLE_RATE_APPROX = 50; // Hz estimate; actual varies
+const MAX_POINTS = CHART_SECONDS * SAMPLE_RATE_APPROX;
+const GRAVITY_ALPHA = 0.85;     // high-pass filter coeff (removes gravity)
+const VEL_DECAY = 0.998;        // drift correction for velocity integration
+const NOISE_ALPHA = 0.005;      // slow noise floor tracker
+const EVENT_THRESHOLD_GAL = 3;  // Gal to trigger event log
+
+let running = false;
+let listener = null;
+let lastTime = null;
+
+// Filter state
+let gravX = 0, gravY = 0, gravZ = 9.8; // start assuming phone vertical
+let velX = 0, velY = 0, velZ = 0;
+let noiseFloor = 0.02; // Gal, updated during calibration
+
+// Calibration
+let calibrating = false;
+let calibSamples = [];
+
+// Peak tracking (60s rolling window)
+const PEAK_WINDOW_MS = 60000;
+let peakBuf = []; // { t, gal }
+let pgaPeak = 0;
+let pgvPeak = 0;
+let peakVelBuf = []; // { t, cms }
+
+// Chart data buffers
+const BUF = MAX_POINTS;
+const dataX = new Array(BUF).fill(0);
+const dataY = new Array(BUF).fill(0);
+const dataZ = new Array(BUF).fill(0);
+const dataV = new Array(BUF).fill(0);
+let bufPtr = 0;
+
+// Event tracking
+let lastEventTime = 0;
+const EVENT_COOLDOWN_MS = 5000;
+
+// Display update throttle
+let lastDisplayUpdate = 0;
+const DISPLAY_INTERVAL_MS = 80;
+
+// ─────────────────────────────────────────────
+//  Chart setup
+// ─────────────────────────────────────────────
+const ctx = document.getElementById('chart').getContext('2d');
+
+const makeDataset = (label, color, data) => ({
+  label,
+  data,
+  borderColor: color,
+  borderWidth: 1.2,
+  pointRadius: 0,
+  tension: 0.2,
+  fill: false,
+});
+
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: new Array(BUF).fill(''),
+    datasets: [
+      makeDataset('X', '#44aaff', [...dataX]),
+      makeDataset('Y', '#2ecc71', [...dataY]),
+      makeDataset('Z', '#e74c3c', [...dataZ]),
+      makeDataset('Vector', '#f39c12', [...dataV]),
+    ],
+  },
+  options: {
+    animation: false,
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { display: false },
+      y: {
+        grid: { color: '#1a1a2e' },
+        ticks: {
+          color: '#5a607a',
+          font: { family: 'monospace', size: 9 },
+          maxTicksLimit: 6,
+          callback: v => v.toFixed(1),
+        },
+        title: { display: true, text: 'Gal', color: '#5a607a', font: { size: 9 } },
+      },
+    },
+  },
+});
+
+// ─────────────────────────────────────────────
+//  Seismic computations
+// ─────────────────────────────────────────────
+
+function calcShindoIndex(pgaGal) {
+  if (pgaGal < 0.01) return -1;
+  const I = 2 * Math.log10(pgaGal) + 0.94;
+  if (I < 0.5)  return 0;
+  if (I < 1.5)  return 1;
+  if (I < 2.5)  return 2;
+  if (I < 3.5)  return 3;
+  if (I < 4.5)  return 4;
+  if (I < 5.0)  return 5;  // 5-
+  if (I < 5.5)  return 6;  // 5+
+  if (I < 6.0)  return 7;  // 6-
+  if (I < 6.5)  return 8;  // 6+
+  return 9;                 // 7
+}
+
+const SHINDO_LABELS = ['0', '1', '2', '3', '4', '5−', '5+', '6−', '6+', '7'];
+const SHINDO_COLORS = ['#444', '#66aaff', '#44ddaa', '#aadd44', '#ffdd00', '#ffaa00', '#ff8800', '#ff4400', '#ff2200', '#cc00cc'];
+
+function calcMMI(pgaGal) {
+  if (pgaGal < 0.05) return 1;
+  const lp = Math.log10(pgaGal);
+  let mmi = pgaGal < 39 ? 1.78 * lp + 1.55 : 3.70 * lp - 1.60;
+  return Math.max(1, Math.min(12, Math.round(mmi)));
+}
+
+const MMI_ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+
+// ─────────────────────────────────────────────
+//  Motion handler
+// ─────────────────────────────────────────────
+
+function onMotion(e) {
+  if (!running) return;
+
+  const now = performance.now();
+  const dt = lastTime ? Math.min((now - lastTime) / 1000, 0.1) : 0.02;
+  lastTime = now;
+
+  // Raw acceleration including gravity (m/s²)
+  const src = e.accelerationIncludingGravity || {};
+  const rawX = src.x ?? 0;
+  const rawY = src.y ?? 0;
+  const rawZ = src.z ?? 0;
+
+  // High-pass filter: estimate gravity, subtract it
+  gravX = GRAVITY_ALPHA * gravX + (1 - GRAVITY_ALPHA) * rawX;
+  gravY = GRAVITY_ALPHA * gravY + (1 - GRAVITY_ALPHA) * rawY;
+  gravZ = GRAVITY_ALPHA * gravZ + (1 - GRAVITY_ALPHA) * rawZ;
+
+  let dynX = rawX - gravX;
+  let dynY = rawY - gravY;
+  let dynZ = rawZ - gravZ;
+
+  // Convert to Gal (cm/s²)
+  dynX *= 100; dynY *= 100; dynZ *= 100;
+
+  // Subtract noise floor
+  const mag = Math.sqrt(dynX*dynX + dynY*dynY + dynZ*dynZ);
+  const corrMag = Math.max(0, mag - noiseFloor);
+
+  // Velocity integration with drift decay
+  velX = (velX + dynX * dt) * VEL_DECAY;
+  velY = (velY + dynY * dt) * VEL_DECAY;
+  velZ = (velZ + dynZ * dt) * VEL_DECAY;
+  const velMag = Math.sqrt(velX*velX + velY*velY + velZ*velZ);
+
+  // Push to ring buffers
+  dataX[bufPtr] = dynX;
+  dataY[bufPtr] = dynY;
+  dataZ[bufPtr] = dynZ;
+  dataV[bufPtr] = corrMag;
+  bufPtr = (bufPtr + 1) % BUF;
+
+  // Rolling 60s peak window
+  peakBuf.push({ t: now, gal: corrMag });
+  peakVelBuf.push({ t: now, cms: velMag });
+  const cutoff = now - PEAK_WINDOW_MS;
+  while (peakBuf.length && peakBuf[0].t < cutoff) peakBuf.shift();
+  while (peakVelBuf.length && peakVelBuf[0].t < cutoff) peakVelBuf.shift();
+
+  pgaPeak = peakBuf.reduce((m, p) => Math.max(m, p.gal), 0);
+  pgvPeak = peakVelBuf.reduce((m, p) => Math.max(m, p.cms), 0);
+
+  // Calibration sample collection
+  if (calibrating) {
+    calibSamples.push(mag);
+    if (calibSamples.length >= 150) finishCalibration();
+    return;
+  }
+
+  // Noise floor slow track when calm
+  if (corrMag < noiseFloor * 3) {
+    noiseFloor = noiseFloor * (1 - NOISE_ALPHA) + mag * NOISE_ALPHA;
+  }
+
+  // Event detection
+  if (corrMag > EVENT_THRESHOLD_GAL && now - lastEventTime > EVENT_COOLDOWN_MS) {
+    lastEventTime = now;
+    logEvent(corrMag, velMag);
+  }
+
+  // Throttled display update
+  if (now - lastDisplayUpdate > DISPLAY_INTERVAL_MS) {
+    lastDisplayUpdate = now;
+    updateDisplay(dynX, dynY, dynZ, corrMag);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Display update
+// ─────────────────────────────────────────────
+
+let frameReq = null;
+
+function updateDisplay(ax, ay, az, vec) {
+  // Rebuild chart datasets in ring-buffer order
+  const len = BUF;
+  const start = bufPtr;
+  const xs = new Array(len), ys = new Array(len), zs = new Array(len), vs = new Array(len);
+  for (let i = 0; i < len; i++) {
+    const idx = (start + i) % len;
+    xs[i] = dataX[idx]; ys[i] = dataY[idx]; zs[i] = dataZ[idx]; vs[i] = dataV[idx];
+  }
+  chart.data.datasets[0].data = xs;
+  chart.data.datasets[1].data = ys;
+  chart.data.datasets[2].data = zs;
+  chart.data.datasets[3].data = vs;
+  chart.update('none');
+
+  // Axis bars (centred, max 100 Gal = full bar)
+  const maxGal = 20;
+  setBar('bar-x', 'val-x', ax, maxGal);
+  setBar('bar-y', 'val-y', ay, maxGal);
+  setBar('bar-z', 'val-z', az, maxGal);
+
+  // PGA / PGV
+  const pgaEl = document.getElementById('pga-val');
+  const pgvEl = document.getElementById('pgv-val');
+  pgaEl.textContent = pgaPeak.toFixed(2);
+  pgvEl.textContent = pgvPeak.toFixed(3);
+
+  colorMetric(pgaEl, pgaPeak, 2, 20);
+  colorMetric(pgvEl, pgvPeak, 0.1, 1);
+
+  // Shindo
+  const shindoIdx = calcShindoIndex(pgaPeak);
+  const shindoEl = document.getElementById('shindo-val');
+  shindoEl.textContent = shindoIdx < 0 ? '—' : SHINDO_LABELS[shindoIdx];
+  shindoEl.style.color = shindoIdx < 0 ? 'var(--dim)' : SHINDO_COLORS[shindoIdx];
+
+  // MMI
+  const mmi = calcMMI(pgaPeak);
+  const mmiEl = document.getElementById('mmi-val');
+  mmiEl.textContent = MMI_ROMAN[mmi] || 'I';
+  colorMetric(mmiEl, mmi, 3, 6);
+
+  // Status dot color on event
+  const dot = document.getElementById('status-dot');
+  if (vec > EVENT_THRESHOLD_GAL * 2) {
+    dot.className = 'event';
+  } else {
+    dot.className = 'active';
+  }
+}
+
+function setBar(id, valId, val, maxGal) {
+  const bar = document.getElementById(id);
+  const valEl = document.getElementById(valId);
+  const pct = Math.min(Math.abs(val) / maxGal * 50, 50);
+  if (val >= 0) {
+    bar.style.left = '50%';
+    bar.style.width = pct + '%';
+  } else {
+    bar.style.left = (50 - pct) + '%';
+    bar.style.width = pct + '%';
+  }
+  valEl.textContent = val.toFixed(2);
+}
+
+function colorMetric(el, val, warnThresh, highThresh) {
+  el.classList.remove('elevated', 'high');
+  if (val >= highThresh) el.classList.add('high');
+  else if (val >= warnThresh) el.classList.add('elevated');
+}
+
+// ─────────────────────────────────────────────
+//  Event log
+// ─────────────────────────────────────────────
+
+function logEvent(gal, cms) {
+  const log = document.getElementById('event-log');
+  const now = new Date();
+  const ts = now.toLocaleTimeString('en', { hour12: false });
+  const si = calcShindoIndex(gal);
+  const mmi = calcMMI(gal);
+
+  const item = document.createElement('div');
+  item.className = 'event-log-item';
+  item.innerHTML = `
+    <span class="evt-time">${ts}</span>
+    <span class="evt-info">PGA ${gal.toFixed(1)} Gal · PGV ${cms.toFixed(2)} cm/s · MMI ${MMI_ROMAN[mmi]}</span>
+    <span class="evt-shindo">${si >= 0 ? 'S' + SHINDO_LABELS[si] : '—'}</span>
+  `;
+  log.prepend(item);
+  // Keep max 5 events visible
+  while (log.children.length > 5) log.removeChild(log.lastChild);
+}
+
+// ─────────────────────────────────────────────
+//  Calibration
+// ─────────────────────────────────────────────
+
+function startCalibration() {
+  if (!running) return;
+  calibSamples = [];
+  calibrating = true;
+  document.getElementById('calib-btn').textContent = 'Calibrating…';
+  document.getElementById('calib-btn').disabled = true;
+}
+
+function finishCalibration() {
+  calibrating = false;
+  const sorted = calibSamples.slice().sort((a, b) => a - b);
+  // Use 90th percentile as noise floor (ignore rare spikes)
+  const idx = Math.floor(sorted.length * 0.9);
+  noiseFloor = Math.max(0.01, sorted[idx] * 100); // to Gal
+  document.getElementById('calib-btn').textContent = 'Calibrate';
+  document.getElementById('calib-btn').disabled = false;
+
+  const btn = document.getElementById('calib-btn');
+  btn.textContent = `✓ ${noiseFloor.toFixed(2)} Gal`;
+  setTimeout(() => { btn.textContent = 'Calibrate'; }, 2000);
+}
+
+// ─────────────────────────────────────────────
+//  Start / stop
+// ─────────────────────────────────────────────
+
+async function requestAndStart() {
+  // iOS 13+ requires explicit permission
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const perm = await DeviceMotionEvent.requestPermission();
+      if (perm !== 'granted') {
+        alert('Motion sensor permission denied. Please allow in Settings → Safari → Motion & Orientation Access.');
+        return;
+      }
+    } catch (err) {
+      alert('Could not request motion permission: ' + err.message);
+      return;
+    }
+  }
+
+  if (typeof DeviceMotionEvent === 'undefined') {
+    alert('DeviceMotion API not available on this browser/device.\n\nTry Chrome or Safari on a physical phone.');
+    return;
+  }
+
+  startSensor();
+}
+
+function startSensor() {
+  running = true;
+  lastTime = null;
+  listener = onMotion;
+  window.addEventListener('devicemotion', listener, { passive: true });
+
+  document.getElementById('perm-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  document.getElementById('status-dot').classList.add('active');
+  document.getElementById('status-text').textContent = 'LIVE';
+  document.getElementById('pause-btn').textContent = 'Pause';
+}
+
+function togglePause() {
+  if (!listener) return;
+  running = !running;
+  document.getElementById('pause-btn').textContent = running ? 'Pause' : 'Resume';
+  document.getElementById('status-text').textContent = running ? 'LIVE' : 'PAUSED';
+  if (running) {
+    document.getElementById('status-dot').classList.add('active');
+    lastTime = null;
+  } else {
+    document.getElementById('status-dot').classList.remove('active');
+  }
+}
+
+function resetPeaks() {
+  peakBuf = [];
+  peakVelBuf = [];
+  pgaPeak = 0;
+  pgvPeak = 0;
+  velX = 0; velY = 0; velZ = 0;
+  document.getElementById('pga-val').textContent = '0.00';
+  document.getElementById('pgv-val').textContent = '0.000';
+  document.getElementById('shindo-val').textContent = '—';
+  document.getElementById('mmi-val').textContent = 'I';
+}
+
+// ─────────────────────────────────────────────
+//  Wire up buttons
+// ─────────────────────────────────────────────
+
+document.getElementById('start-btn').addEventListener('click', requestAndStart);
+document.getElementById('pause-btn').addEventListener('click', togglePause);
+document.getElementById('reset-btn').addEventListener('click', resetPeaks);
+document.getElementById('calib-btn').addEventListener('click', startCalibration);
+
+// ─────────────────────────────────────────────
+//  Service worker registration (offline / PWA)
+// ─────────────────────────────────────────────
+
+if ('serviceWorker' in navigator) {
+  const swCode = `
+    const CACHE = 'seismophone-v1';
+    self.addEventListener('install', e => {
+      e.waitUntil(caches.open(CACHE).then(c => c.add('/')));
+      self.skipWaiting();
+    });
+    self.addEventListener('fetch', e => {
+      e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+    });
+  `;
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const swURL = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swURL).catch(() => {});
+}
+
+// ─────────────────────────────────────────────
+//  Inline manifest for Chrome Android PWA install
+// ─────────────────────────────────────────────
+
+(function() {
+  const manifest = {
+    name: 'SeismoPhone',
+    short_name: 'SeismoPhone',
+    start_url: '.',
+    display: 'standalone',
+    background_color: '#080812',
+    theme_color: '#080812',
+    icons: [{
+      src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23080812'/><text y='70' x='10' font-size='70'>📳</text></svg>",
+      sizes: '192x192',
+      type: 'image/svg+xml'
+    }]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = url;
+  document.head.appendChild(link);
+})();
+</script>
+</body>
+</html>
