@@ -227,7 +227,6 @@
 
 <div id="clock-bar">
   <span><span class="tz">UTC</span><span class="t" id="clock-utc">—</span></span>
-  <span><span class="tz">PT&nbsp;</span><span class="t" id="clock-pt">—</span></span>
 </div>
 
 <!-- Start screen -->
@@ -881,8 +880,8 @@ document.getElementById('install-btn').addEventListener('click', async () => {
     const uh  = String(now.getUTCHours()).padStart(2, '0');
     const um  = String(now.getUTCMinutes()).padStart(2, '0');
     const us  = String(now.getUTCSeconds()).padStart(2, '0');
-    utcEl.textContent = `${uh}:${um}:${us}.${ms}`;
-    ptEl.textContent  = `${ptFmt.format(now)}.${ms}`;
+    const ud  = now.toISOString().slice(0, 10);
+    utcEl.textContent = `${ud}  ${uh}:${um}:${us}.${ms}`;
   }
   update();
   setInterval(update, 50);
