@@ -35,12 +35,9 @@
 
   /* ── Header ── */
   header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
     padding: 10px 14px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
+    background: var(--surface); border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
   .logo { font-size: 1.05rem; font-weight: 700; color: var(--accent); letter-spacing: .04em; }
@@ -53,14 +50,14 @@
   #status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 1.5s infinite; }
   #status-dot.event  { background: var(--red);   box-shadow: 0 0 12px var(--red); }
   #status-dot.stream { background: var(--amber);  box-shadow: 0 0 8px var(--amber); }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.45} }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
   #status-text { font-size: .6rem; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
   .icon-btn {
-    background: none; border: none; cursor: pointer; padding: 4px;
-    color: var(--dim); font-size: 1.1rem; line-height: 1;
+    background: none; border: none; cursor: pointer;
+    padding: 4px; color: var(--dim); font-size: 1.1rem; line-height: 1;
     transition: color .2s;
   }
-  .icon-btn:hover, .icon-btn.active { color: var(--accent); }
+  .icon-btn.active, .icon-btn:hover { color: var(--accent); }
 
   /* ── Permission screen ── */
   #perm-screen {
@@ -84,47 +81,79 @@
     cursor: pointer; letter-spacing: .05em;
   }
 
-  /* ── App layout ── */
+  /* ── App ── */
   #app { display: none; flex-direction: column; height: calc(100dvh - 48px); }
   #app.visible { display: flex; }
 
   /* ── Chart ── */
-  .chart-wrap { flex: 1 1 auto; min-height: 0; padding: 6px 4px 0; background: var(--surface); position: relative; }
+  .chart-wrap { flex: 1 1 auto; min-height: 0; padding: 6px 4px 0; background: var(--surface); }
   .legend { display: flex; gap: 12px; padding: 3px 10px; font-size: .62rem; color: var(--dim); }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; }
 
   /* ── Axis bars ── */
   .axis-bars { padding: 6px 10px; display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); flex-shrink: 0; }
-  .axis-row { display: flex; align-items: center; gap: 7px; font-size: .62rem; }
+  .axis-row  { display: flex; align-items: center; gap: 7px; font-size: .62rem; }
   .axis-name { width: 11px; color: var(--dim); }
   .axis-track { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; position: relative; }
-  .axis-bar { position: absolute; top: 0; bottom: 0; border-radius: 3px; transition: width .07s, left .07s; }
-  .axis-val { width: 46px; text-align: right; font-size: .6rem; color: var(--dim); }
+  .axis-bar  { position: absolute; top: 0; bottom: 0; border-radius: 3px; transition: width .07s, left .07s; }
+  .axis-val  { width: 46px; text-align: right; font-size: .6rem; color: var(--dim); }
+
+  /* ── Mode toggle ── */
+  .mode-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 5px 10px 4px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--bg);
+  }
+  .mode-toggle {
+    display: flex; border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
+  }
+  .mode-btn {
+    padding: 4px 14px; font-size: .64rem; font-family: inherit;
+    letter-spacing: .07em; text-transform: uppercase;
+    background: none; border: none; color: var(--dim); cursor: pointer;
+    transition: background .15s, color .15s;
+    border-radius: 0;
+  }
+  .mode-btn.on {
+    background: var(--accent); color: #000; font-weight: 700;
+  }
+  .mode-btn.max-on {
+    background: var(--amber); color: #000; font-weight: 700;
+  }
+  #max-hint { font-size: .58rem; color: var(--dim); }
 
   /* ── Metrics grid ── */
   .metrics { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; border-top: 1px solid var(--border); flex-shrink: 0; }
-  .metric { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 3px 6px; border-right: 1px solid var(--border); gap: 1px; }
+  .metric {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 7px 3px 6px; border-right: 1px solid var(--border); gap: 1px;
+  }
   .metric:last-child { border-right: none; }
-  .metric-label { font-size: .58rem; color: var(--dim); text-transform: uppercase; letter-spacing: .09em; }
-  .metric-value { font-size: 1.25rem; font-weight: 700; line-height: 1.1; color: var(--accent); transition: color .25s; }
+  .metric-label { font-size: .57rem; color: var(--dim); text-transform: uppercase; letter-spacing: .09em; }
+  .metric-value { font-size: 1.2rem; font-weight: 700; line-height: 1.1; color: var(--accent); transition: color .2s; }
+  .metric-value.live-mode { color: var(--accent); }
+  .metric-value.max-mode  { color: var(--amber); }
   .metric-sub   { font-size: .62rem; color: var(--dim); line-height: 1; }
-  .metric-unit  { font-size: .52rem; color: #3a405a; margin-top: 1px; }
-  .metric-value.warn { color: var(--amber); }
-  .metric-value.high { color: var(--red); }
+  .metric-sub2  { font-size: .58rem; color: #3a4060; line-height: 1; }
+  .metric-unit  { font-size: .5rem; color: #2a2a40; margin-top: 1px; }
+  .metric-value.warn { color: var(--amber) !important; }
+  .metric-value.high { color: var(--red)   !important; }
 
-  /* ── Scale bar ── */
+  /* ── Shindo color scale ── */
   .scale-row { display: flex; align-items: center; padding: 4px 10px; gap: 2px; border-top: 1px solid var(--border); flex-shrink: 0; }
-  .scale-seg  { flex: 1; height: 4px; border-radius: 2px; }
-  .scale-lbl  { display: flex; justify-content: space-between; padding: 0 10px 3px; font-size: .52rem; color: var(--dim); }
+  .scale-seg { flex: 1; height: 4px; border-radius: 2px; }
+  .scale-lbl { display: flex; justify-content: space-between; padding: 0 10px 3px; font-size: .52rem; color: var(--dim); }
 
   /* ── Event log ── */
-  .evt-log { flex-shrink: 0; max-height: 54px; overflow-y: auto; border-top: 1px solid var(--border); background: var(--bg); }
+  .evt-log { flex-shrink: 0; max-height: 52px; overflow-y: auto; border-top: 1px solid var(--border); background: var(--bg); }
   .evt-item { display: flex; justify-content: space-between; align-items: center; padding: 3px 10px; font-size: .6rem; border-bottom: 1px solid var(--border); animation: fi .3s; }
   @keyframes fi { from{opacity:0;transform:translateY(-3px)} to{opacity:1} }
-  .evt-ts    { color: var(--dim); }
-  .evt-info  { color: var(--amber); }
-  .evt-si    { color: var(--red); font-weight: 700; }
+  .evt-ts   { color: var(--dim); }
+  .evt-info { color: var(--amber); }
+  .evt-si   { font-weight: 700; }
 
   /* ── Controls ── */
   .controls { display: flex; gap: 6px; padding: 6px 10px 8px; border-top: 1px solid var(--border); flex-shrink: 0; }
@@ -133,13 +162,13 @@
     border: 1px solid var(--border); background: var(--surface);
     color: var(--text); font-family: inherit; font-size: .68rem;
     letter-spacing: .05em; text-transform: uppercase;
-    border-radius: 6px; cursor: pointer; transition: background .15s, border-color .15s;
+    border-radius: 6px; cursor: pointer; transition: background .15s;
     -webkit-appearance: none;
   }
   button:active { background: var(--border); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
   button.primary:active { opacity: .8; }
-  button.danger  { border-color: var(--red); color: var(--red); }
+  button.danger { border-color: var(--red); color: var(--red); }
 
   /* ── Settings panel ── */
   #settings-panel {
@@ -150,7 +179,8 @@
   .settings-sheet {
     background: var(--surface); border-radius: 14px 14px 0 0;
     border: 1px solid var(--border); border-bottom: none;
-    width: 100%; padding: 18px 18px 28px; display: flex; flex-direction: column; gap: 14px;
+    width: 100%; padding: 18px 18px 28px;
+    display: flex; flex-direction: column; gap: 14px;
   }
   .settings-sheet h3 { font-size: .9rem; color: var(--accent); display: flex; justify-content: space-between; align-items: center; }
   .settings-sheet label { font-size: .72rem; color: var(--dim); display: block; margin-bottom: 4px; }
@@ -162,16 +192,16 @@
   }
   .settings-sheet input:focus { border-color: var(--accent); }
   .ws-status { font-size: .68rem; padding: 4px 0; }
-  .ws-status.connected { color: var(--green); }
+  .ws-status.connected  { color: var(--green); }
   .ws-status.connecting { color: var(--amber); }
-  .ws-status.error { color: var(--red); }
-  .ws-status.off { color: var(--dim); }
+  .ws-status.error      { color: var(--red); }
+  .ws-status.off        { color: var(--dim); }
   .settings-row { display: flex; gap: 8px; }
   .settings-row button { padding: 9px 12px; font-size: .7rem; }
 
   @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    .controls        { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-    .settings-sheet  { padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+    .controls       { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+    .settings-sheet { padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
   }
 </style>
 </head>
@@ -181,30 +211,25 @@
   <div class="logo">SeismoPhone <small>accelerometer</small></div>
   <div class="hdr-right">
     <span id="status-text">IDLE</span>
-    <button class="icon-btn" id="stream-btn" title="Streaming settings">⇆</button>
+    <button class="icon-btn" id="stream-btn" title="Streaming">⇆</button>
     <div id="status-dot"></div>
   </div>
 </header>
 
-<!-- Permission / start screen -->
+<!-- Start screen -->
 <div id="perm-screen">
   <h2>📳 SeismoPhone</h2>
-  <p>Real-time accelerometer seismometer with PGA, PGV, continuous Shindo intensity, and MMI.</p>
-  <div class="info-box">
-    ⚠️ On iPhone, tap <strong>Enable Sensor</strong> to grant motion access.<br>
-    Place the phone flat on a solid surface for best results.
-  </div>
+  <p>Real-time accelerometer seismometer. PGA · PGV · Shindo (JMA) · MMI — continuous precision.</p>
+  <div class="info-box">⚠️ On iPhone tap <strong>Enable Sensor</strong> to grant motion access.<br>Lay the phone flat on a hard surface for best results.</div>
   <button class="primary" id="start-btn" style="max-width:250px;padding:13px 20px;font-size:.82rem;">Enable Sensor &amp; Start</button>
   <button id="install-btn">⬇ Install as App</button>
-  <p style="font-size:.68rem;color:var(--dim)">Or: Safari/Chrome → Share → Add to Home Screen</p>
+  <p style="font-size:.68rem;color:var(--dim)">Safari / Chrome → Share → Add to Home Screen</p>
 </div>
 
 <!-- Main app -->
 <div id="app">
 
-  <div class="chart-wrap">
-    <canvas id="chart"></canvas>
-  </div>
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
   <div class="legend">
     <span><span class="dot" style="background:#44aaff"></span>X</span>
     <span><span class="dot" style="background:#2ecc71"></span>Y</span>
@@ -230,29 +255,40 @@
     </div>
   </div>
 
+  <!-- Live / Max toggle -->
+  <div class="mode-bar">
+    <div class="mode-toggle">
+      <button class="mode-btn on"    id="btn-live">● LIVE</button>
+      <button class="mode-btn"       id="btn-max">▲ MAX</button>
+    </div>
+    <span id="max-hint">—</span>
+  </div>
+
+  <!-- Metrics -->
   <div class="metrics">
     <div class="metric">
       <span class="metric-label">PGA</span>
-      <span class="metric-value" id="pga-val">0.00</span>
-      <span class="metric-sub">Gal (60s pk)</span>
+      <span class="metric-value" id="pga-val">—</span>
+      <span class="metric-sub" id="pga-sub">Gal</span>
       <span class="metric-unit">cm/s²</span>
     </div>
     <div class="metric">
       <span class="metric-label">PGV</span>
-      <span class="metric-value" id="pgv-val">0.000</span>
-      <span class="metric-sub">cm/s (60s pk)</span>
+      <span class="metric-value" id="pgv-val">—</span>
+      <span class="metric-sub" id="pgv-sub">cm/s</span>
       <span class="metric-unit">integrated</span>
     </div>
     <div class="metric">
       <span class="metric-label">Shindo</span>
       <span class="metric-value" id="shindo-val">—</span>
-      <span class="metric-sub" id="shindo-jma" style="font-size:.7rem;font-weight:700">JMA —</span>
-      <span class="metric-unit">I_inst continuous</span>
+      <span class="metric-sub" id="shindo-jma" style="font-weight:700">JMA —</span>
+      <span class="metric-unit">I = 2log(PGA)+0.94</span>
     </div>
     <div class="metric">
       <span class="metric-label">MMI</span>
       <span class="metric-value" id="mmi-val">—</span>
-      <span class="metric-sub" id="mmi-roman">—</span>
+      <span class="metric-sub" id="mmi-sub">—</span>
+      <span class="metric-sub2" id="mmi-pgv-sub">PGV→ —</span>
       <span class="metric-unit">Worden 2012</span>
     </div>
   </div>
@@ -277,32 +313,27 @@
 
   <div class="controls">
     <button id="pause-btn">Pause</button>
-    <button class="danger" id="reset-btn">Reset Peak</button>
+    <button class="danger" id="reset-btn">Reset Max</button>
     <button id="calib-btn">Calibrate</button>
   </div>
 
 </div><!-- /app -->
 
-<!-- Settings / streaming panel -->
+<!-- Streaming settings -->
 <div id="settings-panel">
   <div class="settings-sheet">
     <h3>Stream to Computer <button class="icon-btn" id="close-settings" style="font-size:1.2rem">✕</button></h3>
-
     <div>
       <label for="ws-url">Server URL (run <code>seismophone_server.py</code> on your computer)</label>
       <input type="text" id="ws-url" placeholder="ws://192.168.1.100:8765" inputmode="url" autocomplete="off" autocapitalize="none">
     </div>
-
     <div class="settings-row">
       <button id="ws-connect-btn" class="primary" style="flex:2">Connect</button>
       <button id="ws-disconnect-btn" style="flex:1;display:none">Disconnect</button>
     </div>
-
     <div class="ws-status off" id="ws-status">● Not connected</div>
-
     <div style="font-size:.65rem;color:var(--dim);line-height:1.6">
-      Start the Python server on your computer, enter its IP above, then tap Connect.
-      The computer dashboard will show your live data.
+      Same Wi-Fi required. The server prints your IP when it starts.
     </div>
   </div>
 </div>
@@ -311,64 +342,88 @@
 'use strict';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const CHART_SEC    = 30;
-const EST_HZ       = 50;
-const MAX_PTS      = CHART_SEC * EST_HZ;
-const GRAV_ALPHA   = 0.85;
-const VEL_DECAY    = 0.998;
-const NOISE_ALPHA  = 0.005;
-const EVENT_GAL    = 3;
-const EVENT_COOL   = 5000;
+const CHART_SEC   = 30;
+const EST_HZ      = 50;
+const MAX_PTS     = CHART_SEC * EST_HZ;
+const GRAV_ALPHA  = 0.85;   // high-pass gravity filter
+const VEL_DECAY   = 0.998;  // velocity drift correction
+const NOISE_ALPHA = 0.005;  // slow noise floor tracker
+const EVENT_GAL   = 3;      // Gal threshold for event log
+const EVENT_COOL  = 5000;   // ms between event log entries
+const LIVE_WIN_MS = 3000;   // ms window for "live" peak
 
-// ── State ──────────────────────────────────────────────────────────────────
-let running = false, listener = null, lastTime = null;
-let gravX = 0, gravY = 0, gravZ = 9.8;
-let velX = 0, velY = 0, velZ = 0;
-let noiseFloor = 0.02;
-let calibrating = false, calibSamples = [];
-let peakBuf = [], velBuf = [];
-let pgaPeak = 0, pgvPeak = 0;
-let lastEvent = 0, lastDisplay = 0;
+// ── Seismic formulas ───────────────────────────────────────────────────────
 
-// Ring buffers for chart
-const dX = new Float32Array(MAX_PTS);
-const dY = new Float32Array(MAX_PTS);
-const dZ = new Float32Array(MAX_PTS);
-const dV = new Float32Array(MAX_PTS);
-let ptr = 0;
-
-// WebSocket streaming
-let ws = null;
-let wsSendBuf = null; // latest packet, sent on next frame
-
-// ── Seismic math ───────────────────────────────────────────────────────────
-
+// JMA instrumental seismic intensity (approximation without freq weighting)
+// Source: JMA, I = 2·log₁₀(PGA_Gal) + 0.94
 function shindoFloat(pgaGal) {
   if (pgaGal < 0.001) return null;
-  return 2 * Math.log10(pgaGal) + 0.94;
+  return 2.0 * Math.log10(pgaGal) + 0.94;
 }
 
-const SHINDO_LABELS  = ['0','1','2','3','4','5−','5+','6−','6+','7'];
-const SHINDO_COLORS  = ['#555','#66aaff','#44ddaa','#aadd44','#ffdd00','#ffaa00','#ff6600','#ff3300','#dd0000','#cc00cc'];
-const SHINDO_BOUNDS  = [0.5, 1.5, 2.5, 3.5, 4.5, 5.0, 5.5, 6.0, 6.5];
+// JMA Shindo level thresholds (I_inst → discrete label)
+const SHINDO_BOUNDS = [0.5, 1.5, 2.5, 3.5, 4.5, 5.0, 5.5, 6.0, 6.5];
+const SHINDO_LABELS = ['0', '1', '2', '3', '4', '5−', '5+', '6−', '6+', '7'];
+const SHINDO_COLORS = ['#555','#66aaff','#44ddaa','#aadd44','#ffdd00','#ffaa00','#ff6600','#ff3300','#dd0000','#cc00cc'];
 
 function shindoIndex(I) {
   if (I === null || I === undefined) return -1;
-  for (let i = 0; i < SHINDO_BOUNDS.length; i++) {
-    if (I < SHINDO_BOUNDS[i]) return i;
-  }
-  return 9;
+  for (let i = 0; i < SHINDO_BOUNDS.length; i++) if (I < SHINDO_BOUNDS[i]) return i;
+  return 9; // Shindo 7
 }
 
-function mmiFloat(pgaGal) {
+// MMI from PGA — Worden et al. 2012, Eq. (2), PGA in cm/s² (Gal)
+// Low regime : I = 1.78·log₁₀(PGA) + 1.55  (PGA < 43.7 Gal)
+// High regime: I = 3.70·log₁₀(PGA) − 1.60  (PGA ≥ 43.7 Gal)
+// Crossover  : 43.7 Gal (I ≈ 4.47)
+function mmiFromPGA(pgaGal) {
   if (pgaGal < 0.05) return 1.0;
   const lp = Math.log10(pgaGal);
-  const v = pgaGal < 39 ? 1.78 * lp + 1.55 : 3.70 * lp - 1.60;
+  const v  = pgaGal < 43.7 ? 1.78 * lp + 1.55 : 3.70 * lp - 1.60;
+  return Math.max(1.0, Math.min(12.0, v));
+}
+
+// MMI from PGV — Worden et al. 2012, Eq. (3), PGV in cm/s
+// Low regime : I = 1.47·log₁₀(PGV) + 3.78  (PGV < 3.36 cm/s)
+// High regime: I = 3.16·log₁₀(PGV) + 2.89  (PGV ≥ 3.36 cm/s)
+// Crossover  : 3.36 cm/s (I ≈ 4.55)
+function mmiFromPGV(pgvCms) {
+  if (pgvCms < 0.001) return 1.0;
+  const lv = Math.log10(pgvCms);
+  const v  = pgvCms < 3.36 ? 1.47 * lv + 3.78 : 3.16 * lv + 2.89;
   return Math.max(1.0, Math.min(12.0, v));
 }
 
 const MMI_ROMAN = ['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
 const MMI_DESC  = ['','Not felt','Weak','Weak','Light','Moderate','Strong','Very strong','Severe','Violent','Extreme','Extreme','Extreme'];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let running = false, listener = null, lastTime = null;
+let gravX = 0, gravY = 0, gravZ = 9.8;
+let velX = 0, velY = 0, velZ = 0;
+let noiseFloor = 0.02; // Gal
+let calibrating = false, calibSamples = [];
+let lastEvent = 0, lastDisplay = 0;
+
+// 3-second rolling window → "live" display
+let liveBuf = [];  // {t, pga, pgv}
+let livePGA = 0, livePGV = 0;
+
+// Session maximum
+let maxPGA = 0, maxPGV = 0, maxTime = null;
+
+// Display mode: 'live' or 'max'
+let displayMode = 'live';
+
+// WebSocket
+let ws = null, wsSendBuf = null;
+
+// Chart ring buffers
+const dX = new Float32Array(MAX_PTS);
+const dY = new Float32Array(MAX_PTS);
+const dZ = new Float32Array(MAX_PTS);
+const dV = new Float32Array(MAX_PTS);
+let ptr = 0;
 
 // ── Chart ──────────────────────────────────────────────────────────────────
 const chart = new Chart(document.getElementById('chart').getContext('2d'), {
@@ -376,10 +431,10 @@ const chart = new Chart(document.getElementById('chart').getContext('2d'), {
   data: {
     labels: new Array(MAX_PTS).fill(''),
     datasets: [
-      { label:'X', data: Array.from(dX), borderColor:'#44aaff', borderWidth:1.1, pointRadius:0, tension:.2, fill:false },
-      { label:'Y', data: Array.from(dY), borderColor:'#2ecc71', borderWidth:1.1, pointRadius:0, tension:.2, fill:false },
-      { label:'Z', data: Array.from(dZ), borderColor:'#e74c3c', borderWidth:1.1, pointRadius:0, tension:.2, fill:false },
-      { label:'V', data: Array.from(dV), borderColor:'#f39c12', borderWidth:1.4, pointRadius:0, tension:.2, fill:false },
+      { label:'X', data:Array.from(dX), borderColor:'#44aaff', borderWidth:1.1, pointRadius:0, tension:.2, fill:false },
+      { label:'Y', data:Array.from(dY), borderColor:'#2ecc71', borderWidth:1.1, pointRadius:0, tension:.2, fill:false },
+      { label:'Z', data:Array.from(dZ), borderColor:'#e74c3c', borderWidth:1.1, pointRadius:0, tension:.2, fill:false },
+      { label:'V', data:Array.from(dV), borderColor:'#f39c12', borderWidth:1.4, pointRadius:0, tension:.2, fill:false },
     ],
   },
   options: {
@@ -404,64 +459,80 @@ function onMotion(e) {
   lastTime  = now;
 
   const src = e.accelerationIncludingGravity || {};
-  const rX = src.x ?? 0, rY = src.y ?? 0, rZ = src.z ?? 0;
+  const rX  = src.x ?? 0, rY = src.y ?? 0, rZ = src.z ?? 0;
 
+  // High-pass: remove gravity
   gravX = GRAV_ALPHA * gravX + (1 - GRAV_ALPHA) * rX;
   gravY = GRAV_ALPHA * gravY + (1 - GRAV_ALPHA) * rY;
   gravZ = GRAV_ALPHA * gravZ + (1 - GRAV_ALPHA) * rZ;
 
-  // Dynamic accel in Gal
-  const aX = (rX - gravX) * 100;
+  const aX = (rX - gravX) * 100; // → Gal
   const aY = (rY - gravY) * 100;
   const aZ = (rZ - gravZ) * 100;
   const mag = Math.sqrt(aX*aX + aY*aY + aZ*aZ);
   const vec = Math.max(0, mag - noiseFloor);
 
-  // Velocity integration
+  // Velocity integration (trapezoidal) with drift decay
   velX = (velX + aX * dt) * VEL_DECAY;
   velY = (velY + aY * dt) * VEL_DECAY;
   velZ = (velZ + aZ * dt) * VEL_DECAY;
-  const velMag = Math.sqrt(velX*velX + velY*velY + velZ*velZ);
+  const velMag = Math.sqrt(velX*velX + velY*velY + velZ*velZ); // cm/s
 
-  // Ring buffer
+  // Chart ring buffer
   dX[ptr] = aX; dY[ptr] = aY; dZ[ptr] = aZ; dV[ptr] = vec;
   ptr = (ptr + 1) % MAX_PTS;
 
-  // 60s rolling peaks
-  peakBuf.push({ t: now, v: vec });
-  velBuf.push({ t: now, v: velMag });
-  const cut = now - 60000;
-  while (peakBuf.length && peakBuf[0].t < cut) peakBuf.shift();
-  while (velBuf.length  && velBuf[0].t  < cut) velBuf.shift();
-  pgaPeak = peakBuf.reduce((m, p) => Math.max(m, p.v), 0);
-  pgvPeak = velBuf.reduce((m,  p) => Math.max(m, p.v), 0);
+  // ── Live window (3s rolling max) ────────────────────────────────────────
+  liveBuf.push({ t: now, pga: vec, pgv: velMag });
+  const liveCut = now - LIVE_WIN_MS;
+  while (liveBuf.length && liveBuf[0].t < liveCut) liveBuf.shift();
+  livePGA = liveBuf.reduce((m, p) => Math.max(m, p.pga), 0);
+  livePGV = liveBuf.reduce((m, p) => Math.max(m, p.pgv), 0);
 
+  // ── Session max ─────────────────────────────────────────────────────────
+  if (vec > maxPGA) {
+    maxPGA  = vec;
+    maxPGV  = Math.max(maxPGV, velMag); // update pgv only when pga peaks
+    maxTime = new Date();
+  }
+  if (velMag > maxPGV) maxPGV = velMag;
+
+  // Calibration
   if (calibrating) { calibSamples.push(mag); if (calibSamples.length >= 150) finishCalib(); return; }
+
+  // Slow noise floor update
   if (vec < noiseFloor * 3) noiseFloor = noiseFloor * (1 - NOISE_ALPHA) + mag * NOISE_ALPHA;
 
-  // Event detection
+  // Event log
   if (vec > EVENT_GAL && now - lastEvent > EVENT_COOL) {
-    lastEvent = now;
-    logEvent(vec, velMag);
+    lastEvent = now; logEvent(vec, velMag);
   }
 
-  // WS packet (prepared here, sent in display update)
-  const si = shindoFloat(pgaPeak);
-  const mi = mmiFloat(pgaPeak);
+  // Prepare WS packet
+  const si   = shindoFloat(livePGA);
+  const mPGA = mmiFromPGA(livePGA);
+  const mPGV = mmiFromPGV(livePGV);
   wsSendBuf = JSON.stringify({
-    t: Date.now(), ax: +aX.toFixed(3), ay: +aY.toFixed(3), az: +aZ.toFixed(3),
-    vec: +vec.toFixed(3), pga: +pgaPeak.toFixed(3), pgv: +pgvPeak.toFixed(4),
-    shindo_i: si !== null ? +si.toFixed(3) : null,
-    shindo: si !== null ? SHINDO_LABELS[shindoIndex(si)] : null,
-    mmi: +mi.toFixed(3),
+    t: Date.now(),
+    ax: +aX.toFixed(3), ay: +aY.toFixed(3), az: +aZ.toFixed(3), vec: +vec.toFixed(3),
+    // live
+    live_pga: +livePGA.toFixed(3), live_pgv: +livePGV.toFixed(4),
+    live_shindo_i: si !== null ? +si.toFixed(3) : null,
+    live_shindo: si !== null ? SHINDO_LABELS[shindoIndex(si)] : null,
+    live_mmi_pga: +mPGA.toFixed(3),
+    live_mmi_pgv: +mPGV.toFixed(3),
+    // session max
+    max_pga: +maxPGA.toFixed(3), max_pgv: +maxPGV.toFixed(4),
+    max_mmi_pga: +mmiFromPGA(maxPGA).toFixed(3),
+    max_mmi_pgv: +mmiFromPGV(maxPGV).toFixed(3),
   });
 
-  if (now - lastDisplay > 80) { lastDisplay = now; updateDisplay(aX, aY, aZ, vec, si, mi); }
+  if (now - lastDisplay > 80) { lastDisplay = now; updateDisplay(aX, aY, aZ); }
 }
 
 // ── Display ────────────────────────────────────────────────────────────────
-function updateDisplay(aX, aY, aZ, vec, si, mi) {
-  // Chart data in order
+function updateDisplay(aX, aY, aZ) {
+  // Chart
   const xs=[], ys=[], zs=[], vs=[];
   for (let i = 0; i < MAX_PTS; i++) {
     const idx = (ptr + i) % MAX_PTS;
@@ -473,53 +544,79 @@ function updateDisplay(aX, aY, aZ, vec, si, mi) {
   chart.data.datasets[3].data = vs;
   chart.update('none');
 
-  // Axis bars
-  const MAX_G = 15;
-  setBar('bar-x', 'val-x', aX, MAX_G);
-  setBar('bar-y', 'val-y', aY, MAX_G);
-  setBar('bar-z', 'val-z', aZ, MAX_G);
+  // Axis bars (±15 Gal = full bar)
+  setBar('bar-x', 'val-x', aX, 15);
+  setBar('bar-y', 'val-y', aY, 15);
+  setBar('bar-z', 'val-z', aZ, 15);
 
-  // PGA
+  // Choose values based on mode
+  const isMax = displayMode === 'max';
+  const pga   = isMax ? maxPGA  : livePGA;
+  const pgv   = isMax ? maxPGV  : livePGV;
+  const si    = shindoFloat(pga);
+  const siIdx = shindoIndex(si);
+  const mPGA  = mmiFromPGA(pga);
+  const mPGV  = mmiFromPGV(pgv);
+
+  // Update max hint
+  const hint = document.getElementById('max-hint');
+  if (isMax && maxTime) {
+    hint.textContent = 'peaked ' + maxTime.toLocaleTimeString('en', { hour12: false });
+    hint.style.color = 'var(--amber)';
+  } else {
+    hint.textContent = '3s window';
+    hint.style.color = 'var(--dim)';
+  }
+
+  // ── PGA ──────────────────────────────────────────────────────────────────
   const pgaEl = document.getElementById('pga-val');
-  pgaEl.textContent = pgaPeak.toFixed(2);
-  colorMetric(pgaEl, pgaPeak, 2, 20);
+  pgaEl.textContent = pga.toFixed(2);
+  pgaEl.className   = 'metric-value ' + (isMax ? 'max-mode' : 'live-mode');
+  colorMetric(pgaEl, pga, 2, 20);
+  document.getElementById('pga-sub').textContent = isMax ? 'session max' : '3s peak';
 
-  // PGV
+  // ── PGV ──────────────────────────────────────────────────────────────────
   const pgvEl = document.getElementById('pgv-val');
-  pgvEl.textContent = pgvPeak.toFixed(3);
-  colorMetric(pgvEl, pgvPeak, 0.1, 1);
+  pgvEl.textContent = pgv.toFixed(3);
+  pgvEl.className   = 'metric-value ' + (isMax ? 'max-mode' : 'live-mode');
+  colorMetric(pgvEl, pgv, 0.1, 1);
+  document.getElementById('pgv-sub').textContent = isMax ? 'session max' : '3s peak';
 
-  // Shindo (continuous I_inst)
+  // ── Shindo ────────────────────────────────────────────────────────────────
   const shindoEl  = document.getElementById('shindo-val');
   const shindoJma = document.getElementById('shindo-jma');
-  if (si === null) {
+  if (si === null || pga < 0.01) {
     shindoEl.textContent = '—'; shindoEl.style.color = 'var(--dim)';
     shindoJma.textContent = 'JMA —'; shindoJma.style.color = 'var(--dim)';
   } else {
-    const idx = shindoIndex(si);
-    const displayI = Math.max(0, si);
-    shindoEl.textContent  = displayI.toFixed(2);
-    shindoEl.style.color  = SHINDO_COLORS[Math.max(0, idx)];
-    shindoJma.textContent = 'JMA ' + (idx >= 0 ? SHINDO_LABELS[idx] : '0');
-    shindoJma.style.color = SHINDO_COLORS[Math.max(0, idx)];
+    const dispI = Math.max(0, si);
+    shindoEl.textContent  = dispI.toFixed(2);
+    shindoEl.style.color  = SHINDO_COLORS[Math.max(0, siIdx)];
+    shindoJma.textContent = 'JMA ' + SHINDO_LABELS[Math.max(0, siIdx)];
+    shindoJma.style.color = SHINDO_COLORS[Math.max(0, siIdx)];
   }
+  shindoEl.className = 'metric-value ' + (isMax ? 'max-mode' : 'live-mode');
 
-  // MMI (continuous float)
+  // ── MMI (PGA + PGV) ───────────────────────────────────────────────────────
   const mmiEl    = document.getElementById('mmi-val');
-  const mmiRoman = document.getElementById('mmi-roman');
-  mmiEl.textContent    = mi.toFixed(2);
-  mmiRoman.textContent = MMI_ROMAN[Math.round(mi)] + ' — ' + (MMI_DESC[Math.round(mi)] || '');
-  colorMetric(mmiEl, mi, 4, 6);
+  const mmiSub   = document.getElementById('mmi-sub');
+  const mmiPgvSub = document.getElementById('mmi-pgv-sub');
+  mmiEl.textContent     = mPGA.toFixed(2);
+  mmiEl.className       = 'metric-value ' + (isMax ? 'max-mode' : 'live-mode');
+  const mR = Math.round(mPGA);
+  mmiSub.textContent    = (MMI_ROMAN[mR] || 'I') + ' ' + (MMI_DESC[mR] || '');
+  mmiPgvSub.textContent = 'PGV→ ' + mPGV.toFixed(2);
+  colorMetric(mmiEl, mPGA, 4, 6);
 
   // Status dot
   const dot = document.getElementById('status-dot');
   if (ws && ws.readyState === WebSocket.OPEN) {
-    dot.className = vec > EVENT_GAL * 2 ? 'event' : 'stream';
+    dot.className = livePGA > EVENT_GAL * 2 ? 'event' : 'stream';
   } else {
-    dot.className = vec > EVENT_GAL * 2 ? 'event' : 'active';
+    dot.className = livePGA > EVENT_GAL * 2 ? 'event' : 'active';
   }
 
-  // Send over WebSocket
+  // WebSocket send
   if (ws && ws.readyState === WebSocket.OPEN && wsSendBuf) {
     try { ws.send(wsSendBuf); } catch(_) {}
     wsSendBuf = null;
@@ -536,25 +633,33 @@ function setBar(id, valId, v, max) {
 
 function colorMetric(el, v, warn, hi) {
   el.classList.remove('warn', 'high');
-  if (v >= hi) el.classList.add('high');
+  if      (v >= hi)   el.classList.add('high');
   else if (v >= warn) el.classList.add('warn');
 }
+
+// ── Mode toggle ────────────────────────────────────────────────────────────
+function setMode(mode) {
+  displayMode = mode;
+  document.getElementById('btn-live').className = 'mode-btn' + (mode === 'live' ? ' on'     : '');
+  document.getElementById('btn-max').className  = 'mode-btn' + (mode === 'max'  ? ' max-on' : '');
+}
+document.getElementById('btn-live').addEventListener('click', () => setMode('live'));
+document.getElementById('btn-max').addEventListener('click',  () => setMode('max'));
 
 // ── Event log ──────────────────────────────────────────────────────────────
 function logEvent(gal, cms) {
   const log = document.getElementById('evt-log');
   const si  = shindoFloat(gal);
   const idx = shindoIndex(si);
-  const mi  = mmiFloat(gal);
+  const mi  = mmiFromPGA(gal);
   const ts  = new Date().toLocaleTimeString('en', { hour12: false });
   const item = document.createElement('div');
   item.className = 'evt-item';
   item.innerHTML = `
     <span class="evt-ts">${ts}</span>
-    <span class="evt-info">PGA ${gal.toFixed(1)} Gal · PGV ${cms.toFixed(2)} cm/s · MMI ${mi.toFixed(2)}</span>
+    <span class="evt-info">PGA ${gal.toFixed(2)} · PGV ${cms.toFixed(3)} · MMI ${mi.toFixed(2)}</span>
     <span class="evt-si" style="color:${SHINDO_COLORS[Math.max(0,idx)]}">
-      ${si !== null ? 'S' + Math.max(0,si).toFixed(2) : '—'}
-    </span>`;
+      ${si !== null ? 'S' + Math.max(0,si).toFixed(2) : '—'}</span>`;
   log.prepend(item);
   while (log.children.length > 5) log.removeChild(log.lastChild);
 }
@@ -563,8 +668,8 @@ function logEvent(gal, cms) {
 function startCalib() {
   if (!running) return;
   calibSamples = []; calibrating = true;
-  document.getElementById('calib-btn').textContent = 'Calibrating…';
-  document.getElementById('calib-btn').disabled = true;
+  const btn = document.getElementById('calib-btn');
+  btn.textContent = 'Calibrating…'; btn.disabled = true;
 }
 function finishCalib() {
   calibrating = false;
@@ -579,7 +684,7 @@ function finishCalib() {
 // ── Sensor start/stop ──────────────────────────────────────────────────────
 async function requestAndStart() {
   if (typeof DeviceMotionEvent === 'undefined') {
-    alert('DeviceMotion API not available.\nOpen in Safari or Chrome on a real phone.'); return;
+    alert('DeviceMotion not available.\nOpen in Safari or Chrome on a real phone.'); return;
   }
   if (typeof DeviceMotionEvent.requestPermission === 'function') {
     const perm = await DeviceMotionEvent.requestPermission().catch(err => {
@@ -596,59 +701,52 @@ async function requestAndStart() {
   document.getElementById('app').classList.add('visible');
   document.getElementById('status-dot').classList.add('active');
   document.getElementById('status-text').textContent = 'LIVE';
-  document.getElementById('pause-btn').textContent = 'Pause';
 }
 
 function togglePause() {
   running = !running;
   document.getElementById('pause-btn').textContent = running ? 'Pause' : 'Resume';
   document.getElementById('status-text').textContent = running ? 'LIVE' : 'PAUSED';
-  if (running) { document.getElementById('status-dot').className = 'active'; lastTime = null; }
-  else          { document.getElementById('status-dot').className = ''; }
+  document.getElementById('status-dot').className = running ? 'active' : '';
+  if (running) lastTime = null;
 }
 
-function resetPeaks() {
-  peakBuf = []; velBuf = []; pgaPeak = 0; pgvPeak = 0;
+function resetMax() {
+  maxPGA = 0; maxPGV = 0; maxTime = null;
+  liveBuf = []; livePGA = 0; livePGV = 0;
   velX = 0; velY = 0; velZ = 0;
-  ['pga-val','pgv-val'].forEach(id => document.getElementById(id).textContent = '0.00');
-  document.getElementById('shindo-val').textContent = '—';
-  document.getElementById('mmi-val').textContent    = '—';
+  document.getElementById('max-hint').textContent = '—';
 }
 
-// ── WebSocket streaming ────────────────────────────────────────────────────
+// ── WebSocket ──────────────────────────────────────────────────────────────
 function wsConnect() {
   const url = document.getElementById('ws-url').value.trim();
   if (!url) return;
   localStorage.setItem('wsUrl', url);
   setWsStatus('connecting', 'Connecting…');
   ws = new WebSocket(url);
-  ws.onopen    = () => { setWsStatus('connected', '● Connected to ' + url); updateStreamBtn(); };
-  ws.onclose   = () => { ws = null; setWsStatus('off', '● Disconnected'); updateStreamBtn(); };
-  ws.onerror   = () => { ws = null; setWsStatus('error', '● Connection failed'); updateStreamBtn(); };
+  ws.onopen  = () => { setWsStatus('connected', '● Connected to ' + url); updateStreamBtn(); };
+  ws.onclose = () => { ws = null; setWsStatus('off', '● Disconnected'); updateStreamBtn(); };
+  ws.onerror = () => { ws = null; setWsStatus('error', '● Connection failed'); updateStreamBtn(); };
 }
 function wsDisconnect() { if (ws) { ws.close(); ws = null; } }
 function setWsStatus(cls, msg) {
   const el = document.getElementById('ws-status');
-  el.className = 'ws-status ' + cls;
-  el.textContent = msg;
+  el.className = 'ws-status ' + cls; el.textContent = msg;
 }
 function updateStreamBtn() {
-  const connected = ws && ws.readyState === WebSocket.OPEN;
-  document.getElementById('ws-connect-btn').style.display    = connected ? 'none'  : '';
-  document.getElementById('ws-disconnect-btn').style.display = connected ? ''      : 'none';
-  document.getElementById('stream-btn').classList.toggle('active', connected);
+  const on = ws && ws.readyState === WebSocket.OPEN;
+  document.getElementById('ws-connect-btn').style.display    = on ? 'none' : '';
+  document.getElementById('ws-disconnect-btn').style.display = on ? ''     : 'none';
+  document.getElementById('stream-btn').classList.toggle('active', on);
 }
-
-// Restore saved URL
 document.getElementById('ws-url').value = localStorage.getItem('wsUrl') || '';
 
 // ── Settings panel ─────────────────────────────────────────────────────────
-document.getElementById('stream-btn').addEventListener('click', () => {
-  document.getElementById('settings-panel').classList.add('open');
-});
-document.getElementById('close-settings').addEventListener('click', () => {
-  document.getElementById('settings-panel').classList.remove('open');
-});
+document.getElementById('stream-btn').addEventListener('click', () =>
+  document.getElementById('settings-panel').classList.add('open'));
+document.getElementById('close-settings').addEventListener('click', () =>
+  document.getElementById('settings-panel').classList.remove('open'));
 document.getElementById('settings-panel').addEventListener('click', e => {
   if (e.target === document.getElementById('settings-panel'))
     document.getElementById('settings-panel').classList.remove('open');
@@ -656,34 +754,31 @@ document.getElementById('settings-panel').addEventListener('click', e => {
 document.getElementById('ws-connect-btn').addEventListener('click', wsConnect);
 document.getElementById('ws-disconnect-btn').addEventListener('click', wsDisconnect);
 
+// ── Buttons ────────────────────────────────────────────────────────────────
+document.getElementById('start-btn').addEventListener('click', requestAndStart);
+document.getElementById('pause-btn').addEventListener('click', togglePause);
+document.getElementById('reset-btn').addEventListener('click', resetMax);
+document.getElementById('calib-btn').addEventListener('click', startCalib);
+
 // ── PWA install prompt ─────────────────────────────────────────────────────
-let deferredInstallPrompt = null;
+let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
+  e.preventDefault(); deferredPrompt = e;
   document.getElementById('install-btn').style.display = 'block';
 });
 document.getElementById('install-btn').addEventListener('click', async () => {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  const { outcome } = await deferredInstallPrompt.userChoice;
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
   if (outcome === 'accepted') document.getElementById('install-btn').style.display = 'none';
-  deferredInstallPrompt = null;
+  deferredPrompt = null;
 });
 
-// ── Button wiring ──────────────────────────────────────────────────────────
-document.getElementById('start-btn').addEventListener('click',  requestAndStart);
-document.getElementById('pause-btn').addEventListener('click',  togglePause);
-document.getElementById('reset-btn').addEventListener('click',  resetPeaks);
-document.getElementById('calib-btn').addEventListener('click',  startCalib);
-
-// ── Service worker (offline cache) ────────────────────────────────────────
+// ── Service worker ─────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
-  const sw = `
-    const C='sp-v2';
-    self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.add('/')));self.skipWaiting();});
-    self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});
-  `;
+  const sw = `const C='sp-v3';
+self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.add('/')));self.skipWaiting();});
+self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
   navigator.serviceWorker.register(
     URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))
   ).catch(() => {});
