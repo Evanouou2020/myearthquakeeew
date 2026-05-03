@@ -99,31 +99,28 @@
   .axis-bar  { position: absolute; top: 0; bottom: 0; border-radius: 3px; transition: width .07s, left .07s; }
   .axis-val  { width: 46px; text-align: right; font-size: .6rem; color: var(--dim); }
 
-  /* ── Mode toggle ── */
+  /* ── Mode toggle (full-width) ── */
   .mode-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 5px 10px 4px;
+    display: flex;
     border-top: 1px solid var(--border);
     flex-shrink: 0;
-    background: var(--bg);
-  }
-  .mode-toggle {
-    display: flex; border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
   }
   .mode-btn {
-    padding: 4px 14px; font-size: .64rem; font-family: inherit;
-    letter-spacing: .07em; text-transform: uppercase;
-    background: none; border: none; color: var(--dim); cursor: pointer;
-    transition: background .15s, color .15s;
-    border-radius: 0;
+    flex: 1; padding: 8px 6px;
+    font-family: inherit; font-size: .72rem; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    background: var(--surface); border: none; color: var(--dim);
+    cursor: pointer; transition: background .15s, color .15s;
+    border-right: 1px solid var(--border);
   }
+  .mode-btn:last-child { border-right: none; }
   .mode-btn.on {
-    background: var(--accent); color: #000; font-weight: 700;
+    background: rgba(68,170,255,.18); color: var(--accent);
   }
   .mode-btn.max-on {
-    background: var(--amber); color: #000; font-weight: 700;
+    background: rgba(243,156,18,.18); color: var(--amber);
   }
-  #max-hint { font-size: .58rem; color: var(--dim); }
+  #max-hint { display: none; }
 
   /* ── Metrics grid ── */
   .metrics { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; border-top: 1px solid var(--border); flex-shrink: 0; }
@@ -255,13 +252,10 @@
     </div>
   </div>
 
-  <!-- Live / Max toggle -->
+  <!-- Live / Max toggle — full width, hard to miss -->
   <div class="mode-bar">
-    <div class="mode-toggle">
-      <button class="mode-btn on"    id="btn-live">● LIVE</button>
-      <button class="mode-btn"       id="btn-max">▲ MAX</button>
-    </div>
-    <span id="max-hint">—</span>
+    <button class="mode-btn on" id="btn-live">● LIVE&nbsp;&nbsp;(3s window)</button>
+    <button class="mode-btn"    id="btn-max">▲ MAX&nbsp;&nbsp;<span id="max-hint" style="font-size:.62rem;font-weight:400;opacity:.7"></span></button>
   </div>
 
   <!-- Metrics -->
@@ -558,15 +552,11 @@ function updateDisplay(aX, aY, aZ) {
   const mPGA  = mmiFromPGA(pga);
   const mPGV  = mmiFromPGV(pgv);
 
-  // Update max hint
+  // Update timestamp inside MAX button
   const hint = document.getElementById('max-hint');
-  if (isMax && maxTime) {
-    hint.textContent = 'peaked ' + maxTime.toLocaleTimeString('en', { hour12: false });
-    hint.style.color = 'var(--amber)';
-  } else {
-    hint.textContent = '3s window';
-    hint.style.color = 'var(--dim)';
-  }
+  hint.textContent = (isMax && maxTime)
+    ? 'peaked ' + maxTime.toLocaleTimeString('en', { hour12: false })
+    : '';
 
   // ── PGA ──────────────────────────────────────────────────────────────────
   const pgaEl = document.getElementById('pga-val');
@@ -712,10 +702,21 @@ function togglePause() {
 }
 
 function resetMax() {
-  maxPGA = 0; maxPGV = 0; maxTime = null;
-  liveBuf = []; livePGA = 0; livePGV = 0;
-  velX = 0; velY = 0; velZ = 0;
-  document.getElementById('max-hint').textContent = '—';
+  const btn = document.getElementById('reset-btn');
+  btn.disabled = true;
+  let countdown = 1;
+  btn.textContent = `Hold… ${countdown}s`;
+  const tick = setInterval(() => {
+    countdown--;
+    if (countdown > 0) { btn.textContent = `Hold… ${countdown}s`; return; }
+    clearInterval(tick);
+    maxPGA = 0; maxPGV = 0; maxTime = null;
+    liveBuf = []; livePGA = 0; livePGV = 0;
+    velX = 0; velY = 0; velZ = 0;
+    document.getElementById('max-hint').textContent = '';
+    btn.textContent = 'Reset Max';
+    btn.disabled = false;
+  }, 1000);
 }
 
 // ── WebSocket ──────────────────────────────────────────────────────────────
