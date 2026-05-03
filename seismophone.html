@@ -850,6 +850,13 @@ function downloadCSV() {
 // ── Screen recording (composite canvas — works without OS screen capture) ──
 let mediaRecorder = null, recordedChunks = [], recStop = null;
 
+function saveDownload(blob, fname) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
 function makeCompositeStream() {
   const W = 720, H = 1280;
   const rc  = document.createElement('canvas');
@@ -943,16 +950,21 @@ async function toggleRecording() {
   catch(e) { mediaRecorder = new MediaRecorder(stream); }
 
   mediaRecorder.ondataavailable = e => { if (e.data.size>0) recordedChunks.push(e.data); };
-  mediaRecorder.onstop = () => {
+  mediaRecorder.onstop = async () => {
     if (recStop) { recStop(); recStop = null; }
     stream.getTracks().forEach(t => t.stop());
-    const type = recordedChunks[0]?.type || 'video/webm';
+    const type = recordedChunks[0]?.type || 'video/mp4';
     const blob = new Blob(recordedChunks, {type});
     const ext  = type.includes('mp4') ? 'mp4' : 'webm';
-    const a    = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'seismophone_'+new Date().toISOString().slice(0,19).replace(/:/g,'-')+'.'+ext;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    const fname = 'seismophone_'+new Date().toISOString().slice(0,19).replace(/:/g,'-')+'.'+ext;
+    const file  = new File([blob], fname, {type});
+    // iOS share sheet → Save to Photos; desktop falls back to download
+    if (navigator.canShare && navigator.canShare({files:[file]})) {
+      try { await navigator.share({files:[file], title:'SeismoPhone Recording'}); }
+      catch(e) { if (e.name !== 'AbortError') saveDownload(blob, fname); }
+    } else {
+      saveDownload(blob, fname);
+    }
     mediaRecorder = null;
     btn.textContent = '⏺ Rec'; btn.style.color = ''; btn.style.borderColor = '';
   };
