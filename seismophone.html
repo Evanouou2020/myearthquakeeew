@@ -398,7 +398,7 @@ function mmiFromPGA(pgaGal) {
   if (pgaGal < 0.05) return 1.0;
   const lp = Math.log10(pgaGal);
   const v  = pgaGal < 43.7 ? 1.78 * lp + 1.55 : 3.70 * lp - 1.60;
-  return Math.max(1.0, Math.min(12.0, v));
+  return Math.max(1.0, v); // no upper cap — extrapolates beyond XII
 }
 
 // MMI from PGV — Worden et al. 2012, Eq. (3), PGV in cm/s
@@ -409,11 +409,19 @@ function mmiFromPGV(pgvCms) {
   if (pgvCms < 0.001) return 1.0;
   const lv = Math.log10(pgvCms);
   const v  = pgvCms < 3.36 ? 1.47 * lv + 3.78 : 3.16 * lv + 2.89;
-  return Math.max(1.0, Math.min(12.0, v));
+  return Math.max(1.0, v); // no upper cap — extrapolates beyond XII
 }
 
 const MMI_ROMAN = ['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
 const MMI_DESC  = ['','Not felt','Weak','Weak','Light','Moderate','Strong','Very strong','Severe','Violent','Extreme','Extreme','Extreme'];
+function mmiLabel(v) {
+  const r = Math.round(v);
+  return r <= 12 ? (MMI_ROMAN[r] || 'I') : 'XII+';
+}
+function mmiDesc(v) {
+  const r = Math.round(v);
+  return r <= 12 ? (MMI_DESC[r] || '') : 'Beyond scale';
+}
 
 // ── State ──────────────────────────────────────────────────────────────────
 let running = false, listener = null, lastTime = null;
@@ -642,7 +650,7 @@ function updateDisplay(aX, aY, aZ, doChart, doMetrics) {
   mmiEl.textContent     = mPGA.toFixed(2);
   mmiEl.className       = 'metric-value ' + (isMax ? 'max-mode' : 'live-mode');
   const mR = Math.round(mPGA);
-  mmiSub.textContent    = (MMI_ROMAN[mR] || 'I') + ' ' + (MMI_DESC[mR] || '');
+  mmiSub.textContent    = mmiLabel(mPGA) + ' ' + mmiDesc(mPGA);
   mmiPgvSub.textContent = 'PGV→ ' + mPGV.toFixed(2);
   colorMetric(mmiEl, mPGA, 4, 6);
 
@@ -880,7 +888,7 @@ function makeCompositeStream() {
       siLbl: si!==null ? 'JMA '+SHINDO_LABELS[Math.max(0,siIdx)] : '',
       siIdx,
       mPGA: mPGA.toFixed(2), mPGV: mPGV.toFixed(2),
-      mmiLbl: (MMI_ROMAN[Math.round(mPGA)]||'I')+' '+(MMI_DESC[Math.round(mPGA)]||''),
+      mmiLbl: mmiLabel(mPGA)+' '+mmiDesc(mPGA),
       pgaColor: pga>20?'#e74c3c':pga>2?'#f39c12':'#44aaff',
       pgvColor: pgv>1?'#f39c12':'#44aaff',
       siColor:  si!==null ? SHINDO_COLORS[Math.max(0,siIdx)] : '#5a607a',

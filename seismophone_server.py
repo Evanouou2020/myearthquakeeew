@@ -168,8 +168,10 @@ const MMI_ROMAN=['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII
 const MMI_DESC=['','Not felt','Weak','Weak','Light','Moderate','Strong','Very strong','Severe','Violent','Extreme','Extreme','Extreme'];
 function shindoFloat(g){return g<0.001?null:2*Math.log10(g)+0.94;}
 function shindoIndex(I){if(I===null)return -1;for(let i=0;i<SHINDO_BOUNDS.length;i++)if(I<SHINDO_BOUNDS[i])return i;return 9;}
-function mmiFromPGA(g){if(g<0.05)return 1;const l=Math.log10(g);return Math.max(1,Math.min(12,g<43.7?1.78*l+1.55:3.70*l-1.60));}
-function mmiFromPGV(v){if(v<0.001)return 1;const l=Math.log10(v);return Math.max(1,Math.min(12,v<3.36?1.47*l+3.78:3.16*l+2.89));}
+function mmiFromPGA(g){if(g<0.05)return 1;const l=Math.log10(g);return Math.max(1,g<43.7?1.78*l+1.55:3.70*l-1.60);}
+function mmiFromPGV(v){if(v<0.001)return 1;const l=Math.log10(v);return Math.max(1,v<3.36?1.47*l+3.78:3.16*l+2.89);}
+function mmiLabel(v){const r=Math.round(v);return r<=12?(MMI_ROMAN[r]||'I'):'XII+';}
+function mmiDesc(v){const r=Math.round(v);return r<=12?(MMI_DESC[r]||''):'Beyond scale';}
 
 const CHART_SEC=60,EST_HZ=50,MAX_PTS=CHART_SEC*EST_HZ;
 const dX=new Float32Array(MAX_PTS),dY=new Float32Array(MAX_PTS),dZ=new Float32Array(MAX_PTS),dV=new Float32Array(MAX_PTS);
@@ -253,7 +255,7 @@ vws.onmessage=e=>{
   const mmiEl=document.getElementById('mmi');
   mmiEl.textContent=mPGA.toFixed(2);mmiEl.className='metric-value '+(isMax?'max-mode':'live-mode');
   const mR=Math.round(mPGA);
-  document.getElementById('mmi-sub').textContent=(MMI_ROMAN[mR]||'I')+' '+(MMI_DESC[mR]||'');
+  document.getElementById('mmi-sub').textContent=mmiLabel(mPGA)+' '+mmiDesc(mPGA);
   document.getElementById('mmi-pgv-sub').textContent='PGV→ '+mPGV.toFixed(2);
   colorM(mmiEl,mPGA,4,6);
 
