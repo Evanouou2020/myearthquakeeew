@@ -6,17 +6,16 @@ Run on your computer:
     pip install websockets
     python3 seismophone_server.py
 
-Everything runs on ONE port (8765):
-  Dashboard  →  http://localhost:8765
-  Phone URL  →  ws://YOUR-IP:8765      (enter this in the phone app)
+Two ports — no websockets version hacks needed:
+  Dashboard  →  http://localhost:8766   (open in browser)
+  Phone WS   →  ws://YOUR-IP:8765      (enter in phone app)
 """
 
 import asyncio
-import http as http_module
 import json
 import socket
 import threading
-import webbrowser
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 try:
     import websockets
@@ -24,8 +23,8 @@ except ImportError:
     print("  ERROR: run  pip install websockets  first")
     raise
 
-WS_VERSION = tuple(int(x) for x in websockets.__version__.split(".")[:2])
-PORT = 8765
+HTTP_PORT = 8766
+WS_PORT   = 8765
 
 # ── Shared state ───────────────────────────────────────────────────────────
 viewers: set = set()
@@ -33,7 +32,7 @@ latest: dict = {}
 phone_connected = False
 
 
-# ── Dashboard HTML (single port — WS connects to same host:port) ───────────
+# ── Dashboard HTML ─────────────────────────────────────────────────────────
 DASHBOARD = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -133,7 +132,7 @@ DASHBOARD = r"""<!DOCTYPE html>
   </div>
   <div class="side">
     <div class="side-sec">
-      <div class="side-title">Connect Phone</div>
+      <div class="side-title">Phone WebSocket URL</div>
       <div id="qrcode"></div>
       <div class="qr-url" id="qr-url"></div>
     </div>
@@ -172,7 +171,6 @@ function shindoIndex(I){if(I===null)return -1;for(let i=0;i<SHINDO_BOUNDS.length
 function mmiFromPGA(g){if(g<0.05)return 1;const l=Math.log10(g);return Math.max(1,Math.min(12,g<43.7?1.78*l+1.55:3.70*l-1.60));}
 function mmiFromPGV(v){if(v<0.001)return 1;const l=Math.log10(v);return Math.max(1,Math.min(12,v<3.36?1.47*l+3.78:3.16*l+2.89));}
 
-// Chart
 const CHART_SEC=60,EST_HZ=50,MAX_PTS=CHART_SEC*EST_HZ;
 const dX=new Float32Array(MAX_PTS),dY=new Float32Array(MAX_PTS),dZ=new Float32Array(MAX_PTS),dV=new Float32Array(MAX_PTS);
 let ptr=0;
@@ -188,12 +186,11 @@ const chart=new Chart(document.getElementById('chart').getContext('2d'),{
     scales:{x:{display:false},y:{grid:{color:'#13132a'},ticks:{color:'#5a607a',font:{family:'monospace',size:9},maxTicksLimit:6,callback:v=>v.toFixed(1)},title:{display:true,text:'Gal',color:'#5a607a',font:{size:9}}}}},
 });
 
-// QR — same host, same port
-const wsUrl='ws://'+location.hostname+':'+location.port;
+// WebSocket connects to WS port 8765 (not same as HTTP port 8766)
+const wsUrl='ws://'+location.hostname+':8765';
 document.getElementById('qr-url').textContent=wsUrl;
 new QRCode(document.getElementById('qrcode'),{text:wsUrl,width:150,height:150,colorDark:'#ffffff',colorLight:'#080812',correctLevel:QRCode.CorrectLevel.M});
 
-// Mode toggle
 let displayMode='live';
 let dashMaxPGA=0,dashMaxPGV=0,dashMaxTime=null;
 function setMode(m){
@@ -204,14 +201,13 @@ function setMode(m){
 document.getElementById('btn-live').addEventListener('click',()=>setMode('live'));
 document.getElementById('btn-max').addEventListener('click',()=>setMode('max'));
 
-// CSV
-const csvRows=[['timestamp','ax','ay','az','vec','live_pga','live_pgv','live_shindo_i','live_mmi_pga','live_mmi_pgv','max_pga','max_pgv']];
+const CSV_HDR='time_iso,time_ms,ax,ay,az,vec,live_pga,live_pgv,live_shindo_i,live_mmi_pga,live_mmi_pgv,max_pga,max_pgv';
+const csvRows=[];
 
-// WebSocket — same port as this dashboard
 const vws=new WebSocket(wsUrl);
 vws.onopen=()=>{vws.send(JSON.stringify({role:'view'}));};
 vws.onclose=()=>{document.getElementById('phone-label').textContent='Server: disconnected';};
-vws.onerror=()=>{document.getElementById('phone-label').textContent='WS error';};
+vws.onerror=()=>{document.getElementById('phone-label').textContent='WS error — is server running?';};
 
 vws.onmessage=e=>{
   const d=JSON.parse(e.data);
@@ -262,8 +258,9 @@ vws.onmessage=e=>{
   colorM(mmiEl,mPGA,4,6);
 
   if(livePGA>3)maybeLogEvent(livePGA,livePGV);
-  csvRows.push([d.t,d.ax,d.ay,d.az,d.vec,d.live_pga,d.live_pgv,d.live_shindo_i,d.live_mmi_pga,d.live_mmi_pgv,d.max_pga,d.max_pgv]);
-  if(csvRows.length>100001)csvRows.splice(1,csvRows.length-100001);
+  const now=new Date();
+  csvRows.push([now.toISOString(),now.getTime(),d.ax,d.ay,d.az,d.vec,d.live_pga,d.live_pgv,d.live_shindo_i,d.live_mmi_pga,d.live_mmi_pgv,d.max_pga,d.max_pgv]);
+  if(csvRows.length>100000)csvRows.splice(0,csvRows.length-100000);
 };
 
 let lastEvtT=0,lastEvtPGA=0;
@@ -281,7 +278,7 @@ function setBar(id,valId,v,max){const b=document.getElementById(id);const pct=Ma
 function colorM(el,v,warn,hi){el.classList.remove('warn','high');if(v>=hi)el.classList.add('high');else if(v>=warn)el.classList.add('warn');}
 
 document.getElementById('dl-btn').addEventListener('click',()=>{
-  const blob=new Blob([csvRows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
+  const blob=new Blob([CSV_HDR+'\n'+csvRows.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='seismophone_'+new Date().toISOString().slice(0,19).replace(/:/g,'-')+'.csv';a.click();
 });
@@ -294,7 +291,6 @@ document.getElementById('dl-btn').addEventListener('click',()=>{
 async def ws_handler(websocket):
     global phone_connected
 
-    # First message determines role: {"role":"phone",...} or {"role":"view"}
     try:
         raw = await asyncio.wait_for(websocket.recv(), timeout=10.0)
         first = json.loads(raw)
@@ -305,7 +301,6 @@ async def ws_handler(websocket):
     role = first.get("role", "phone")
 
     if role == "view":
-        # ── Computer dashboard viewer ──────────────────────────────────────
         viewers.add(websocket)
         try:
             await websocket.send(json.dumps({
@@ -320,7 +315,6 @@ async def ws_handler(websocket):
             viewers.discard(websocket)
 
     else:
-        # ── Phone sensor sender ────────────────────────────────────────────
         phone_connected = True
         print("  📱 Phone connected")
         status = json.dumps({"_phone_status": "connected"})
@@ -330,7 +324,6 @@ async def ws_handler(websocket):
             except Exception:
                 viewers.discard(v)
 
-        # Process the first data packet (it already has sensor data)
         try:
             latest.update({k: v for k, v in first.items() if k != "role"})
             payload = json.dumps({k: v for k, v in first.items() if k != "role"})
@@ -344,7 +337,6 @@ async def ws_handler(websocket):
         except Exception:
             pass
 
-        # Continue receiving data
         try:
             async for msg in websocket:
                 try:
@@ -372,35 +364,22 @@ async def ws_handler(websocket):
                     pass
 
 
-# ── HTTP + WebSocket on the same port ─────────────────────────────────────
-def make_process_request():
-    """Return a process_request hook compatible with websockets 10, 11, or 12."""
-    body = DASHBOARD.encode("utf-8")
-    headers_list = [
-        ("Content-Type", "text/html; charset=utf-8"),
-        ("Content-Length", str(len(body))),
-    ]
+# ── HTTP server for dashboard (separate port, no version hacks) ────────────
+class DashboardHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        body = DASHBOARD.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
-    # Try websockets 12+ API first
-    try:
-        from websockets.http11 import Response, Headers  # noqa: F401
+    def log_message(self, *args):
+        pass  # suppress per-request logs
 
-        async def process_request_v12(connection, request):
-            if request.headers.get("upgrade", "").lower() != "websocket":
-                return Response(200, "OK", Headers(headers_list), body)
 
-        return process_request_v12
-
-    except ImportError:
-        pass
-
-    # Fall back to websockets 10/11 API
-    async def process_request_v10(path, request_headers):
-        upgrade = request_headers.get("Upgrade", request_headers.get("upgrade", ""))
-        if upgrade.lower() != "websocket":
-            return http_module.HTTPStatus.OK, headers_list, body
-
-    return process_request_v10
+def run_http():
+    HTTPServer(("0.0.0.0", HTTP_PORT), DashboardHandler).serve_forever()
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -418,30 +397,27 @@ def get_local_ip():
 # ── Main ───────────────────────────────────────────────────────────────────
 async def main():
     ip = get_local_ip()
-    phone_url = f"ws://{ip}:{PORT}"
+
+    threading.Thread(target=run_http, daemon=True).start()
 
     print()
     print("  ╔══════════════════════════════════════════════╗")
     print("  ║          SeismoPhone Server                  ║")
-    print(f"  ║  websockets {websockets.__version__:<34}║")
     print("  ╚══════════════════════════════════════════════╝")
     print()
     print(f"  ┌──────────────────────────────────────────────┐")
-    print(f"  │  1. Open in browser on THIS computer:        │")
-    print(f"  │     http://localhost:{PORT}                       │")
+    print(f"  │  1. Dashboard — open in browser:             │")
+    print(f"  │     http://localhost:{HTTP_PORT}                      │")
     print(f"  │                                              │")
-    print(f"  │  2. Enter this in the phone app (tap ⇆):    │")
-    print(f"  │     {phone_url:<44}│")
+    print(f"  │  2. Phone — enter in app (tap ⇆):            │")
+    print(f"  │     ws://{ip}:{WS_PORT}                      │")
     print(f"  └──────────────────────────────────────────────┘")
     print()
     print("  Phone and computer must be on the same Wi-Fi.")
     print("  Ctrl+C to stop.")
     print()
 
-    process_request = make_process_request()
-
-    async with websockets.serve(ws_handler, "0.0.0.0", PORT,
-                                 process_request=process_request):
+    async with websockets.serve(ws_handler, "0.0.0.0", WS_PORT):
         await asyncio.Future()
 
 
