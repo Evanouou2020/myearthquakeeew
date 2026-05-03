@@ -1,6 +1,6 @@
 {
-  "name": "SeismoPhone",
-  "short_name": "SeismoPhone",
+  "name": "myearthquake",
+  "short_name": "myearthquake",
   "description": "Phone accelerometer seismometer — PGA, PGV, Shindo, MMI",
   "start_url": "/seismophone.html",
   "scope": "/",
@@ -10,9 +10,9 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%23080812'/><text y='360' x='56' font-size='340' font-family='serif'>📳</text></svg>",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
+      "src": "icon.jpg",
+      "sizes": "any",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ],

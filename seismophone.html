@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SeismoPhone">
+<meta name="apple-mobile-web-app-title" content="myearthquake">
 <meta name="theme-color" content="#080812">
 <link rel="manifest" href="manifest.json">
-<title>SeismoPhone</title>
+<link rel="apple-touch-icon" href="icon.jpg">
+<title>myearthquake</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -217,7 +218,7 @@
 <body>
 
 <header>
-  <div class="logo">SeismoPhone <small>accelerometer</small></div>
+  <div class="logo">myearthquake <small>accelerometer</small></div>
   <div class="hdr-right">
     <span id="status-text">IDLE</span>
     <button class="icon-btn" id="stream-btn" title="Streaming">⇆</button>
@@ -231,7 +232,7 @@
 
 <!-- Start screen -->
 <div id="perm-screen">
-  <h2>📳 SeismoPhone</h2>
+  <h2>📳 myearthquake</h2>
   <p>Real-time accelerometer seismometer. PGA · PGV · Shindo (JMA) · MMI — continuous precision.</p>
   <div class="info-box">⚠️ On iPhone tap <strong>Enable Sensor</strong> to grant motion access.<br>Lay the phone flat on a hard surface for best results.</div>
   <button class="primary" id="start-btn" style="max-width:250px;padding:13px 20px;font-size:.82rem;">Enable Sensor &amp; Start</button>
@@ -918,7 +919,7 @@ function makeCompositeStream() {
 
     // Title + clock
     ctx.fillStyle = '#44aaff'; ctx.font = 'bold 38px monospace';
-    ctx.fillText('SeismoPhone', 24, 52);
+    ctx.fillText('myearthquake', 24, 52);
     ctx.fillStyle = '#5a607a'; ctx.font = '22px monospace';
     ctx.fillText(new Date().toISOString().replace('T',' ').slice(0,23)+' UTC', 24, 82);
 
@@ -993,7 +994,7 @@ async function toggleRecording() {
     const file  = new File([blob], fname, {type});
     // iOS share sheet → Save to Photos; desktop falls back to download
     if (navigator.canShare && navigator.canShare({files:[file]})) {
-      try { await navigator.share({files:[file], title:'SeismoPhone Recording'}); }
+      try { await navigator.share({files:[file], title:'myearthquake Recording'}); }
       catch(e) { if (e.name !== 'AbortError') saveDownload(blob, fname); }
     } else {
       saveDownload(blob, fname);
