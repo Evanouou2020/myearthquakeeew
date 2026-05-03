@@ -326,6 +326,7 @@
     <button class="danger" id="reset-btn">Reset Max</button>
     <button id="calib-btn">Calibrate</button>
     <button id="csv-btn">⬇ CSV</button>
+    <button id="record-btn">⏺ Rec</button>
   </div>
 
 </div><!-- /app -->
@@ -846,11 +847,54 @@ function downloadCSV() {
   URL.revokeObjectURL(url);
 }
 
+// ── Screen recording ───────────────────────────────────────────────────────
+let mediaRecorder = null, recordedChunks = [];
+
+async function toggleRecording() {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    mediaRecorder = null;
+    return;
+  }
+  recordedChunks = [];
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false });
+  } catch(e) {
+    try { stream = document.getElementById('chart').captureStream(30); }
+    catch(e2) {
+      alert('Screen recording not supported here.\nOn iPhone: use Control Center → Screen Recording instead.');
+      return;
+    }
+  }
+  const mime = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+    .find(t => MediaRecorder.isTypeSupported(t)) || '';
+  mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    const type = recordedChunks[0]?.type || 'video/webm';
+    const blob = new Blob(recordedChunks, { type });
+    const ext  = type.includes('mp4') ? 'mp4' : 'webm';
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = 'seismophone_' + new Date().toISOString().slice(0,19).replace(/:/g,'-') + '.' + ext;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    const btn = document.getElementById('record-btn');
+    btn.textContent = '⏺ Rec'; btn.style.cssText = '';
+  };
+  stream.getVideoTracks()[0].onended = () => { if (mediaRecorder) { mediaRecorder.stop(); mediaRecorder = null; } };
+  mediaRecorder.start(1000);
+  const btn = document.getElementById('record-btn');
+  btn.textContent = '⏹ Stop'; btn.style.color = 'var(--red)'; btn.style.borderColor = 'var(--red)';
+}
+
 document.getElementById('start-btn').addEventListener('click', requestAndStart);
 document.getElementById('pause-btn').addEventListener('click', togglePause);
 document.getElementById('reset-btn').addEventListener('click', resetMax);
 document.getElementById('calib-btn').addEventListener('click', startCalib);
 document.getElementById('csv-btn').addEventListener('click', downloadCSV);
+document.getElementById('record-btn').addEventListener('click', toggleRecording);
 
 // ── PWA install prompt ─────────────────────────────────────────────────────
 let deferredPrompt = null;
