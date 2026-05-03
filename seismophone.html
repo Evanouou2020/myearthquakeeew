@@ -847,45 +847,119 @@ function downloadCSV() {
   URL.revokeObjectURL(url);
 }
 
-// ── Screen recording ───────────────────────────────────────────────────────
-let mediaRecorder = null, recordedChunks = [];
+// ── Screen recording (composite canvas — works without OS screen capture) ──
+let mediaRecorder = null, recordedChunks = [], recStop = null;
+
+function makeCompositeStream() {
+  const W = 720, H = 1280;
+  const rc  = document.createElement('canvas');
+  rc.width = W; rc.height = H;
+  const ctx = rc.getContext('2d');
+  const chartCv = document.getElementById('chart');
+
+  function draw() {
+    ctx.fillStyle = '#080812'; ctx.fillRect(0, 0, W, H);
+
+    // Title + clock
+    ctx.fillStyle = '#44aaff'; ctx.font = 'bold 38px monospace';
+    ctx.fillText('SeismoPhone', 24, 52);
+    ctx.fillStyle = '#5a607a'; ctx.font = '22px monospace';
+    const iso = new Date().toISOString();
+    ctx.fillText(iso.replace('T',' ').slice(0,23) + ' UTC', 24, 82);
+
+    // Waveform chart
+    ctx.drawImage(chartCv, 0, 96, W, 360);
+    ctx.fillStyle = '#1e1e3a'; ctx.fillRect(0, 456, W, 1);
+
+    // Choose values based on mode
+    const pga  = displayMode === 'max' ? maxPGA    : currentPGA;
+    const pgv  = displayMode === 'max' ? maxPGV    : currentPGV;
+    const si   = shindoFloat(pga);
+    const siIdx = shindoIndex(si);
+    const mPGA = mmiFromPGA(pga);
+    const mPGV = mmiFromPGV(pgv);
+
+    // Mode badge
+    const mLabel = displayMode === 'max' ? 'MAX' : 'LIVE';
+    ctx.fillStyle = displayMode === 'max' ? 'rgba(243,156,18,.25)' : 'rgba(68,170,255,.18)';
+    ctx.beginPath(); ctx.roundRect(W-118, 462, 94, 30, 6); ctx.fill();
+    ctx.fillStyle = displayMode === 'max' ? '#f39c12' : '#44aaff';
+    ctx.font = 'bold 18px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(mLabel, W-26, 482); ctx.textAlign = 'left';
+
+    const rows = [
+      { label:'PGA',    val: pga.toFixed(2),              unit:'Gal (cm/s²)',
+        color: pga>20?'#e74c3c':pga>2?'#f39c12':'#44aaff' },
+      { label:'PGV',    val: pgv.toFixed(3),              unit:'cm/s  integrated',
+        color: pgv>1?'#f39c12':'#44aaff' },
+      { label:'SHINDO', val: si!==null?Math.max(0,si).toFixed(2):'—',
+        unit: si!==null?'JMA '+SHINDO_LABELS[Math.max(0,siIdx)]:'',
+        color: si!==null?SHINDO_COLORS[Math.max(0,siIdx)]:'#5a607a' },
+      { label:'MMI',    val: mPGA.toFixed(2),
+        unit:(MMI_ROMAN[Math.round(mPGA)]||'I')+' '+
+             (MMI_DESC[Math.round(mPGA)]||'')+'  PGV→'+mPGV.toFixed(2),
+        color: mPGA>6?'#e74c3c':mPGA>4?'#f39c12':'#44aaff' },
+    ];
+    const cellH = 190, startY = 470;
+    rows.forEach((r, i) => {
+      const y = startY + i * cellH;
+      if (i) { ctx.fillStyle='#1e1e3a'; ctx.fillRect(24, y-6, W-48, 1); }
+      ctx.fillStyle = '#5a607a'; ctx.font = '20px monospace';
+      ctx.fillText(r.label, 24, y+26);
+      ctx.fillStyle = r.color; ctx.font = 'bold 96px monospace';
+      ctx.fillText(r.val, 24, y+124);
+      ctx.fillStyle = '#5a607a'; ctx.font = '22px monospace';
+      ctx.fillText(r.unit, 24, y+158);
+    });
+  }
+
+  let raf; function loop(){ draw(); raf = requestAnimationFrame(loop); } loop();
+  return { stream: rc.captureStream(30), stop: ()=> cancelAnimationFrame(raf) };
+}
 
 async function toggleRecording() {
+  const btn = document.getElementById('record-btn');
   if (mediaRecorder && mediaRecorder.state === 'recording') {
-    mediaRecorder.stop();
-    mediaRecorder.stream.getTracks().forEach(t => t.stop());
-    mediaRecorder = null;
-    return;
+    mediaRecorder.stop(); return;
   }
   recordedChunks = [];
   let stream;
+
+  // Try full display capture first; fall back to composite canvas
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false });
   } catch(e) {
-    try { stream = document.getElementById('chart').captureStream(30); }
-    catch(e2) {
-      alert('Screen recording not supported here.\nOn iPhone: use Control Center → Screen Recording instead.');
-      return;
+    try {
+      const c = makeCompositeStream();
+      stream = c.stream; recStop = c.stop;
+    } catch(e2) {
+      alert('Recording unavailable on this browser.'); return;
     }
   }
-  const mime = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+
+  const mime = ['video/mp4','video/webm;codecs=vp9','video/webm']
     .find(t => MediaRecorder.isTypeSupported(t)) || '';
-  mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
-  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+  try { mediaRecorder = new MediaRecorder(stream, mime ? {mimeType:mime} : {}); }
+  catch(e) { mediaRecorder = new MediaRecorder(stream); }
+
+  mediaRecorder.ondataavailable = e => { if (e.data.size>0) recordedChunks.push(e.data); };
   mediaRecorder.onstop = () => {
+    if (recStop) { recStop(); recStop = null; }
+    stream.getTracks().forEach(t => t.stop());
     const type = recordedChunks[0]?.type || 'video/webm';
-    const blob = new Blob(recordedChunks, { type });
+    const blob = new Blob(recordedChunks, {type});
     const ext  = type.includes('mp4') ? 'mp4' : 'webm';
     const a    = document.createElement('a');
-    a.href     = URL.createObjectURL(blob);
-    a.download = 'seismophone_' + new Date().toISOString().slice(0,19).replace(/:/g,'-') + '.' + ext;
+    a.href = URL.createObjectURL(blob);
+    a.download = 'seismophone_'+new Date().toISOString().slice(0,19).replace(/:/g,'-')+'.'+ext;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    const btn = document.getElementById('record-btn');
-    btn.textContent = '⏺ Rec'; btn.style.cssText = '';
+    mediaRecorder = null;
+    btn.textContent = '⏺ Rec'; btn.style.color = ''; btn.style.borderColor = '';
   };
-  stream.getVideoTracks()[0].onended = () => { if (mediaRecorder) { mediaRecorder.stop(); mediaRecorder = null; } };
+  stream.getVideoTracks()[0]?.addEventListener('ended', () => {
+    if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
+  });
   mediaRecorder.start(1000);
-  const btn = document.getElementById('record-btn');
   btn.textContent = '⏹ Stop'; btn.style.color = 'var(--red)'; btn.style.borderColor = 'var(--red)';
 }
 
