@@ -864,29 +864,27 @@ function makeCompositeStream() {
   const ctx = rc.getContext('2d');
   const chartCv = document.getElementById('chart');
 
-  // 1-second snapshot — large readable values in the recording
-  let snap = null, lastSnap = 0;
+  // 1-second snapshot — only the BIG displayed value freezes; raw reads live every frame
+  let snapVals = { pga:'—', pgv:'—', si:'—', siIdx:-1, mPGA:'—', mPGV:'—', siColor:'#5a607a', pgaColor:'#44aaff', pgvColor:'#44aaff', mmiColor:'#44aaff' };
+  let lastSnap = 0;
   function takeSnap() {
     const pga  = displayMode === 'max' ? maxPGA : currentPGA;
     const pgv  = displayMode === 'max' ? maxPGV : currentPGV;
     const si   = shindoFloat(pga);
     const siIdx = shindoIndex(si);
-    const mPGA = mmiFromPGA(pga);
-    const mPGV = mmiFromPGV(pgv);
-    snap = [
-      { label:'PGA',    big: pga.toFixed(2),  raw: currentPGA.toFixed(3),  unit:'Gal',
-        color: pga>20?'#e74c3c':pga>2?'#f39c12':'#44aaff' },
-      { label:'PGV',    big: pgv.toFixed(3),  raw: currentPGV.toFixed(4),  unit:'cm/s',
-        color: pgv>1?'#f39c12':'#44aaff' },
-      { label:'SHINDO', big: si!==null?Math.max(0,si).toFixed(2):'—',
-        raw: si!==null?'live '+shindoFloat(currentPGA)?.toFixed(3):'—',
-        unit: si!==null?'JMA '+SHINDO_LABELS[Math.max(0,siIdx)]:'',
-        color: si!==null?SHINDO_COLORS[Math.max(0,siIdx)]:'#5a607a' },
-      { label:'MMI',    big: mPGA.toFixed(2),
-        raw: 'live '+mmiFromPGA(currentPGA).toFixed(3)+'  PGV→'+mmiFromPGV(currentPGV).toFixed(3),
-        unit:(MMI_ROMAN[Math.round(mPGA)]||'I')+' '+(MMI_DESC[Math.round(mPGA)]||''),
-        color: mPGA>6?'#e74c3c':mPGA>4?'#f39c12':'#44aaff' },
-    ];
+    const mPGA = mmiFromPGA(pga), mPGV = mmiFromPGV(pgv);
+    snapVals = {
+      pga: pga.toFixed(2), pgv: pgv.toFixed(3),
+      si: si!==null ? Math.max(0,si).toFixed(2) : '—',
+      siLbl: si!==null ? 'JMA '+SHINDO_LABELS[Math.max(0,siIdx)] : '',
+      siIdx,
+      mPGA: mPGA.toFixed(2), mPGV: mPGV.toFixed(2),
+      mmiLbl: (MMI_ROMAN[Math.round(mPGA)]||'I')+' '+(MMI_DESC[Math.round(mPGA)]||''),
+      pgaColor: pga>20?'#e74c3c':pga>2?'#f39c12':'#44aaff',
+      pgvColor: pgv>1?'#f39c12':'#44aaff',
+      siColor:  si!==null ? SHINDO_COLORS[Math.max(0,siIdx)] : '#5a607a',
+      mmiColor: mPGA>6?'#e74c3c':mPGA>4?'#f39c12':'#44aaff',
+    };
   }
   takeSnap();
 
@@ -894,43 +892,64 @@ function makeCompositeStream() {
     const now = performance.now();
     if (now - lastSnap >= 1000) { takeSnap(); lastSnap = now; }
 
+    // Live raw values — read globals directly every frame
+    const liveSI  = shindoFloat(currentPGA);
+    const rows = [
+      { label:'PGA',
+        big: snapVals.pga, color: snapVals.pgaColor, unit:'Gal',
+        raw:  currentPGA.toFixed(3)+' Gal',
+        max: 'max '+maxPGA.toFixed(3)+' Gal' },
+      { label:'PGV',
+        big: snapVals.pgv, color: snapVals.pgvColor, unit:'cm/s',
+        raw:  currentPGV.toFixed(4)+' cm/s',
+        max: 'max '+maxPGV.toFixed(4)+' cm/s' },
+      { label:'SHINDO',
+        big: snapVals.si, color: snapVals.siColor, unit: snapVals.siLbl,
+        raw:  liveSI!==null ? Math.max(0,liveSI).toFixed(3) : '—',
+        max: 'max '+(shindoFloat(maxPGA)!==null?Math.max(0,shindoFloat(maxPGA)).toFixed(3):'—')+
+             '  '+SHINDO_LABELS[Math.max(0,shindoIndex(shindoFloat(maxPGA)))] },
+      { label:'MMI (PGA)',
+        big: snapVals.mPGA, color: snapVals.mmiColor, unit: snapVals.mmiLbl,
+        raw:  mmiFromPGA(currentPGA).toFixed(3)+'  PGV→'+mmiFromPGV(currentPGV).toFixed(3),
+        max: 'max '+mmiFromPGA(maxPGA).toFixed(3)+'  PGV→'+mmiFromPGV(maxPGV).toFixed(3) },
+    ];
+
     ctx.fillStyle = '#080812'; ctx.fillRect(0, 0, W, H);
 
     // Title + clock
     ctx.fillStyle = '#44aaff'; ctx.font = 'bold 38px monospace';
     ctx.fillText('SeismoPhone', 24, 52);
     ctx.fillStyle = '#5a607a'; ctx.font = '22px monospace';
-    const iso = new Date().toISOString();
-    ctx.fillText(iso.replace('T',' ').slice(0,23) + ' UTC', 24, 82);
+    ctx.fillText(new Date().toISOString().replace('T',' ').slice(0,23)+' UTC', 24, 82);
 
-    // Waveform chart
-    ctx.drawImage(chartCv, 0, 96, W, 360);
-    ctx.fillStyle = '#1e1e3a'; ctx.fillRect(0, 456, W, 1);
+    // Waveform
+    ctx.drawImage(chartCv, 0, 96, W, 340);
+    ctx.fillStyle = '#1e1e3a'; ctx.fillRect(0, 436, W, 1);
 
     // Mode badge
     const mLabel = displayMode === 'max' ? 'MAX' : 'LIVE';
     ctx.fillStyle = displayMode === 'max' ? 'rgba(243,156,18,.25)' : 'rgba(68,170,255,.18)';
-    ctx.beginPath(); ctx.roundRect(W-118, 462, 94, 30, 6); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(W-118, 442, 94, 28, 6); ctx.fill();
     ctx.fillStyle = displayMode === 'max' ? '#f39c12' : '#44aaff';
-    ctx.font = 'bold 18px monospace'; ctx.textAlign = 'right';
-    ctx.fillText(mLabel, W-26, 482); ctx.textAlign = 'left';
+    ctx.font = 'bold 17px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(mLabel, W-26, 461); ctx.textAlign = 'left';
 
-    const cellH = 200, startY = 470;
-    snap.forEach((r, i) => {
+    const cellH = 208, startY = 450;
+    rows.forEach((r, i) => {
       const y = startY + i * cellH;
-      if (i) { ctx.fillStyle='#1e1e3a'; ctx.fillRect(24, y-6, W-48, 1); }
-      // label
-      ctx.fillStyle = '#5a607a'; ctx.font = '20px monospace';
-      ctx.fillText(r.label, 24, y+24);
-      // big 1s-snapshot value
-      ctx.fillStyle = r.color; ctx.font = 'bold 88px monospace';
-      ctx.fillText(r.big, 24, y+116);
-      // unit
-      ctx.fillStyle = r.color; ctx.font = '22px monospace';
-      ctx.fillText(r.unit, 24, y+148);
-      // raw live value (smaller, dimmer)
-      ctx.fillStyle = '#3a4060'; ctx.font = '18px monospace';
-      ctx.fillText('raw: ' + r.raw, 24, y+174);
+      if (i) { ctx.fillStyle='#1e1e3a'; ctx.fillRect(24, y, W-48, 1); }
+      ctx.fillStyle = '#5a607a'; ctx.font = '18px monospace';
+      ctx.fillText(r.label, 24, y+20);
+      ctx.fillStyle = r.color; ctx.font = 'bold 82px monospace';
+      ctx.fillText(r.big, 24, y+106);
+      ctx.fillStyle = r.color; ctx.font = '20px monospace';
+      ctx.fillText(r.unit, 24, y+132);
+      // live raw — updates every frame
+      ctx.fillStyle = '#44556a'; ctx.font = '17px monospace';
+      ctx.fillText('live: '+r.raw, 24, y+158);
+      // session max
+      ctx.fillStyle = '#6a5500'; ctx.font = '17px monospace';
+      ctx.fillText(r.max, 24, y+180);
     });
   }
 
