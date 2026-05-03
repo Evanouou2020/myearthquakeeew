@@ -7,30 +7,28 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SeismoPhone">
 <meta name="theme-color" content="#080812">
+<link rel="manifest" href="manifest.json">
 <title>SeismoPhone</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --bg:       #080812;
-    --surface:  #10101e;
-    --border:   #1e1e3a;
-    --accent:   #4af;
-    --green:    #2ecc71;
-    --red:      #e74c3c;
-    --amber:    #f39c12;
-    --purple:   #9b59b6;
-    --text:     #c8d0e8;
-    --dim:      #5a607a;
+    --bg:      #080812;
+    --surface: #10101e;
+    --border:  #1e1e3a;
+    --accent:  #44aaff;
+    --green:   #2ecc71;
+    --red:     #e74c3c;
+    --amber:   #f39c12;
+    --text:    #c8d0e8;
+    --dim:     #5a607a;
   }
-
   html, body {
     background: var(--bg);
     color: var(--text);
     font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
     min-height: 100dvh;
-    overflow-x: hidden;
+    overflow: hidden;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
   }
@@ -40,287 +38,165 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px 10px;
+    padding: 10px 14px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-  }
-  .logo {
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: var(--accent);
-  }
-  .logo span { color: var(--dim); font-weight: 400; font-size: 0.75rem; margin-left: 6px; }
-  #status-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    background: var(--dim);
-    box-shadow: 0 0 0 3px transparent;
-    transition: background 0.3s, box-shadow 0.3s;
     flex-shrink: 0;
   }
-  #status-dot.active {
-    background: var(--green);
-    box-shadow: 0 0 8px var(--green);
-    animation: pulse 1.5s infinite;
+  .logo { font-size: 1.05rem; font-weight: 700; color: var(--accent); letter-spacing: .04em; }
+  .logo small { color: var(--dim); font-weight: 400; font-size: .68rem; margin-left: 6px; }
+  .hdr-right { display: flex; align-items: center; gap: 10px; }
+  #status-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--dim); transition: background .3s, box-shadow .3s;
   }
-  #status-dot.event {
-    background: var(--red);
-    box-shadow: 0 0 12px var(--red);
+  #status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 1.5s infinite; }
+  #status-dot.event  { background: var(--red);   box-shadow: 0 0 12px var(--red); }
+  #status-dot.stream { background: var(--amber);  box-shadow: 0 0 8px var(--amber); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.45} }
+  #status-text { font-size: .6rem; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+  .icon-btn {
+    background: none; border: none; cursor: pointer; padding: 4px;
+    color: var(--dim); font-size: 1.1rem; line-height: 1;
+    transition: color .2s;
   }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-  .status-label {
-    font-size: 0.65rem;
-    color: var(--dim);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-right: 8px;
-  }
-  .status-row { display: flex; align-items: center; gap: 6px; }
+  .icon-btn:hover, .icon-btn.active { color: var(--accent); }
 
   /* ── Permission screen ── */
   #perm-screen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: calc(100dvh - 50px);
-    padding: 32px 24px;
-    text-align: center;
-    gap: 20px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: calc(100dvh - 48px);
+    padding: 28px 22px; text-align: center; gap: 18px;
   }
-  #perm-screen h2 { font-size: 1.4rem; color: var(--accent); }
-  #perm-screen p { font-size: 0.85rem; color: var(--dim); line-height: 1.6; max-width: 320px; }
-  #perm-screen .warning {
-    background: #1a0a00;
-    border: 1px solid var(--amber);
-    border-radius: 8px;
-    padding: 12px 16px;
-    font-size: 0.78rem;
-    color: var(--amber);
-    max-width: 340px;
+  #perm-screen h2 { font-size: 1.3rem; color: var(--accent); }
+  #perm-screen p  { font-size: .82rem; color: var(--dim); line-height: 1.6; max-width: 310px; }
+  .info-box {
+    background: #0d0d1e; border: 1px solid var(--amber);
+    border-radius: 8px; padding: 11px 15px;
+    font-size: .76rem; color: var(--amber); max-width: 320px; line-height: 1.5;
+  }
+  #install-btn {
+    display: none; max-width: 240px;
+    padding: 11px 20px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--accent);
+    color: var(--accent); font-family: inherit; font-size: .78rem;
+    cursor: pointer; letter-spacing: .05em;
   }
 
-  /* ── Main app (hidden until started) ── */
-  #app { display: none; flex-direction: column; height: calc(100dvh - 50px); overflow: hidden; }
+  /* ── App layout ── */
+  #app { display: none; flex-direction: column; height: calc(100dvh - 48px); }
   #app.visible { display: flex; }
 
   /* ── Chart ── */
-  .chart-wrap {
-    flex: 1 1 auto;
-    position: relative;
-    min-height: 0;
-    padding: 8px 4px 0;
-    background: var(--surface);
-  }
-  .chart-labels {
-    display: flex;
-    gap: 14px;
-    padding: 4px 12px;
-    font-size: 0.65rem;
-    color: var(--dim);
-    letter-spacing: 0.06em;
-  }
-  .chart-labels span { display: flex; align-items: center; gap: 5px; }
-  .chart-labels .dot {
-    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-  }
-
-  /* ── Metrics grid ── */
-  .metrics {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .metric {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 4px 8px;
-    border-right: 1px solid var(--border);
-    gap: 2px;
-    position: relative;
-  }
-  .metric:last-child { border-right: none; }
-  .metric-label {
-    font-size: 0.6rem;
-    color: var(--dim);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-  .metric-value {
-    font-size: 1.3rem;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--accent);
-    transition: color 0.3s;
-  }
-  .metric-unit {
-    font-size: 0.55rem;
-    color: var(--dim);
-    margin-top: 1px;
-  }
-  .metric-value.elevated { color: var(--amber); }
-  .metric-value.high { color: var(--red); }
-
-  /* Shindo special display */
-  #shindo-val {
-    font-size: 1.6rem;
-  }
-  #mmi-val {
-    font-size: 1.1rem;
-  }
+  .chart-wrap { flex: 1 1 auto; min-height: 0; padding: 6px 4px 0; background: var(--surface); position: relative; }
+  .legend { display: flex; gap: 12px; padding: 3px 10px; font-size: .62rem; color: var(--dim); }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
 
   /* ── Axis bars ── */
-  .axis-bars {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 8px 12px;
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-    flex-shrink: 0;
-  }
-  .axis-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.65rem;
-  }
-  .axis-name { width: 12px; color: var(--dim); }
-  .axis-track {
-    flex: 1;
-    height: 6px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-    position: relative;
-  }
-  .axis-bar {
-    position: absolute;
-    top: 0; bottom: 0;
-    background: var(--accent);
-    border-radius: 3px;
-    transition: width 0.08s linear, left 0.08s linear;
-  }
-  .axis-val { width: 48px; text-align: right; font-size: 0.62rem; color: var(--dim); }
+  .axis-bars { padding: 6px 10px; display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .axis-row { display: flex; align-items: center; gap: 7px; font-size: .62rem; }
+  .axis-name { width: 11px; color: var(--dim); }
+  .axis-track { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; position: relative; }
+  .axis-bar { position: absolute; top: 0; bottom: 0; border-radius: 3px; transition: width .07s, left .07s; }
+  .axis-val { width: 46px; text-align: right; font-size: .6rem; color: var(--dim); }
+
+  /* ── Metrics grid ── */
+  .metrics { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .metric { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 3px 6px; border-right: 1px solid var(--border); gap: 1px; }
+  .metric:last-child { border-right: none; }
+  .metric-label { font-size: .58rem; color: var(--dim); text-transform: uppercase; letter-spacing: .09em; }
+  .metric-value { font-size: 1.25rem; font-weight: 700; line-height: 1.1; color: var(--accent); transition: color .25s; }
+  .metric-sub   { font-size: .62rem; color: var(--dim); line-height: 1; }
+  .metric-unit  { font-size: .52rem; color: #3a405a; margin-top: 1px; }
+  .metric-value.warn { color: var(--amber); }
+  .metric-value.high { color: var(--red); }
+
+  /* ── Scale bar ── */
+  .scale-row { display: flex; align-items: center; padding: 4px 10px; gap: 2px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .scale-seg  { flex: 1; height: 4px; border-radius: 2px; }
+  .scale-lbl  { display: flex; justify-content: space-between; padding: 0 10px 3px; font-size: .52rem; color: var(--dim); }
+
+  /* ── Event log ── */
+  .evt-log { flex-shrink: 0; max-height: 54px; overflow-y: auto; border-top: 1px solid var(--border); background: var(--bg); }
+  .evt-item { display: flex; justify-content: space-between; align-items: center; padding: 3px 10px; font-size: .6rem; border-bottom: 1px solid var(--border); animation: fi .3s; }
+  @keyframes fi { from{opacity:0;transform:translateY(-3px)} to{opacity:1} }
+  .evt-ts    { color: var(--dim); }
+  .evt-info  { color: var(--amber); }
+  .evt-si    { color: var(--red); font-weight: 700; }
 
   /* ── Controls ── */
-  .controls {
-    display: flex;
-    gap: 8px;
-    padding: 8px 12px 10px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
+  .controls { display: flex; gap: 6px; padding: 6px 10px 8px; border-top: 1px solid var(--border); flex-shrink: 0; }
   button {
-    flex: 1;
-    padding: 10px 8px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 0.72rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    flex: 1; padding: 9px 6px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-family: inherit; font-size: .68rem;
+    letter-spacing: .05em; text-transform: uppercase;
+    border-radius: 6px; cursor: pointer; transition: background .15s, border-color .15s;
     -webkit-appearance: none;
   }
   button:active { background: var(--border); }
-  button.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #000;
-    font-weight: 700;
-  }
-  button.primary:active { opacity: 0.8; }
-  button.danger {
-    border-color: var(--red);
-    color: var(--red);
-  }
-  button.danger:active { background: #1a0505; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+  button.primary:active { opacity: .8; }
+  button.danger  { border-color: var(--red); color: var(--red); }
 
-  /* ── Event log ── */
-  .event-log-wrap {
-    flex-shrink: 0;
-    max-height: 60px;
-    overflow-y: auto;
-    border-top: 1px solid var(--border);
-    background: var(--bg);
+  /* ── Settings panel ── */
+  #settings-panel {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: none; align-items: flex-end; z-index: 100;
   }
-  .event-log-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 12px;
-    font-size: 0.62rem;
-    border-bottom: 1px solid var(--border);
-    animation: fadeIn 0.3s;
+  #settings-panel.open { display: flex; }
+  .settings-sheet {
+    background: var(--surface); border-radius: 14px 14px 0 0;
+    border: 1px solid var(--border); border-bottom: none;
+    width: 100%; padding: 18px 18px 28px; display: flex; flex-direction: column; gap: 14px;
   }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
-  .event-log-item .evt-time { color: var(--dim); }
-  .event-log-item .evt-info { color: var(--amber); }
-  .event-log-item .evt-shindo { color: var(--red); font-weight: 700; }
+  .settings-sheet h3 { font-size: .9rem; color: var(--accent); display: flex; justify-content: space-between; align-items: center; }
+  .settings-sheet label { font-size: .72rem; color: var(--dim); display: block; margin-bottom: 4px; }
+  .settings-sheet input[type=text] {
+    width: 100%; padding: 9px 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-family: inherit; font-size: .82rem;
+    outline: none;
+  }
+  .settings-sheet input:focus { border-color: var(--accent); }
+  .ws-status { font-size: .68rem; padding: 4px 0; }
+  .ws-status.connected { color: var(--green); }
+  .ws-status.connecting { color: var(--amber); }
+  .ws-status.error { color: var(--red); }
+  .ws-status.off { color: var(--dim); }
+  .settings-row { display: flex; gap: 8px; }
+  .settings-row button { padding: 9px 12px; font-size: .7rem; }
 
-  /* ── Scale reference ── */
-  .scale-row {
-    display: flex;
-    align-items: center;
-    padding: 5px 12px;
-    gap: 3px;
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .scale-seg {
-    flex: 1;
-    height: 5px;
-    border-radius: 2px;
-  }
-  .scale-labels {
-    display: flex;
-    justify-content: space-between;
-    padding: 0 12px 4px;
-    font-size: 0.55rem;
-    color: var(--dim);
-  }
-
-  /* iOS safe area */
   @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    .controls { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+    .controls        { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+    .settings-sheet  { padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">SeismoPhone <span>accelerometer</span></div>
-  <div class="status-row">
-    <span class="status-label" id="status-text">IDLE</span>
+  <div class="logo">SeismoPhone <small>accelerometer</small></div>
+  <div class="hdr-right">
+    <span id="status-text">IDLE</span>
+    <button class="icon-btn" id="stream-btn" title="Streaming settings">⇆</button>
     <div id="status-dot"></div>
   </div>
 </header>
 
-<!-- Permission / Start screen -->
+<!-- Permission / start screen -->
 <div id="perm-screen">
   <h2>📳 SeismoPhone</h2>
-  <p>Turn your phone into a seismometer. Measures acceleration and computes PGA, PGV, Shindo intensity, and MMI in real time.</p>
-  <div class="warning">
+  <p>Real-time accelerometer seismometer with PGA, PGV, continuous Shindo intensity, and MMI.</p>
+  <div class="info-box">
     ⚠️ On iPhone, tap <strong>Enable Sensor</strong> to grant motion access.<br>
-    Keep the phone flat on a stable surface for best results.
+    Place the phone flat on a solid surface for best results.
   </div>
-  <button class="primary" id="start-btn" style="max-width:260px;padding:14px 20px;font-size:0.85rem;">
-    Enable Sensor &amp; Start
-  </button>
-  <p style="font-size:0.7rem;color:var(--dim);margin-top:4px;">
-    Add to Home Screen to install as app
-  </p>
+  <button class="primary" id="start-btn" style="max-width:250px;padding:13px 20px;font-size:.82rem;">Enable Sensor &amp; Start</button>
+  <button id="install-btn">⬇ Install as App</button>
+  <p style="font-size:.68rem;color:var(--dim)">Or: Safari/Chrome → Share → Add to Home Screen</p>
 </div>
 
 <!-- Main app -->
@@ -329,313 +205,267 @@
   <div class="chart-wrap">
     <canvas id="chart"></canvas>
   </div>
-  <div class="chart-labels">
-    <span><span class="dot" style="background:#4af"></span>X-axis</span>
-    <span><span class="dot" style="background:#2ecc71"></span>Y-axis</span>
-    <span><span class="dot" style="background:#e74c3c"></span>Z-axis</span>
+  <div class="legend">
+    <span><span class="dot" style="background:#44aaff"></span>X</span>
+    <span><span class="dot" style="background:#2ecc71"></span>Y</span>
+    <span><span class="dot" style="background:#e74c3c"></span>Z</span>
     <span><span class="dot" style="background:#f39c12"></span>Vector</span>
   </div>
 
-  <!-- Axis level bars -->
   <div class="axis-bars">
     <div class="axis-row">
       <span class="axis-name">X</span>
-      <div class="axis-track">
-        <div class="axis-bar" id="bar-x" style="background:#4af;width:0%;left:50%"></div>
-      </div>
+      <div class="axis-track"><div class="axis-bar" id="bar-x" style="background:#44aaff"></div></div>
       <span class="axis-val" id="val-x">0.00</span>
     </div>
     <div class="axis-row">
       <span class="axis-name">Y</span>
-      <div class="axis-track">
-        <div class="axis-bar" id="bar-y" style="background:#2ecc71;width:0%;left:50%"></div>
-      </div>
+      <div class="axis-track"><div class="axis-bar" id="bar-y" style="background:#2ecc71"></div></div>
       <span class="axis-val" id="val-y">0.00</span>
     </div>
     <div class="axis-row">
       <span class="axis-name">Z</span>
-      <div class="axis-track">
-        <div class="axis-bar" id="bar-z" style="background:#e74c3c;width:0%;left:50%"></div>
-      </div>
+      <div class="axis-track"><div class="axis-bar" id="bar-z" style="background:#e74c3c"></div></div>
       <span class="axis-val" id="val-z">0.00</span>
     </div>
   </div>
 
-  <!-- Metrics -->
   <div class="metrics">
     <div class="metric">
       <span class="metric-label">PGA</span>
       <span class="metric-value" id="pga-val">0.00</span>
-      <span class="metric-unit">Gal (cm/s²)</span>
+      <span class="metric-sub">Gal (60s pk)</span>
+      <span class="metric-unit">cm/s²</span>
     </div>
     <div class="metric">
       <span class="metric-label">PGV</span>
       <span class="metric-value" id="pgv-val">0.000</span>
-      <span class="metric-unit">cm/s</span>
+      <span class="metric-sub">cm/s (60s pk)</span>
+      <span class="metric-unit">integrated</span>
     </div>
     <div class="metric">
       <span class="metric-label">Shindo</span>
       <span class="metric-value" id="shindo-val">—</span>
-      <span class="metric-unit">JMA scale</span>
+      <span class="metric-sub" id="shindo-jma" style="font-size:.7rem;font-weight:700">JMA —</span>
+      <span class="metric-unit">I_inst continuous</span>
     </div>
     <div class="metric">
       <span class="metric-label">MMI</span>
-      <span class="metric-value" id="mmi-val">I</span>
-      <span class="metric-unit">Mercalli</span>
+      <span class="metric-value" id="mmi-val">—</span>
+      <span class="metric-sub" id="mmi-roman">—</span>
+      <span class="metric-unit">Worden 2012</span>
     </div>
   </div>
 
-  <!-- Shindo color scale reference -->
   <div class="scale-row">
-    <div class="scale-seg" style="background:#444;flex:2"></div>
+    <div class="scale-seg" style="background:#333;flex:2"></div>
     <div class="scale-seg" style="background:#66aaff"></div>
     <div class="scale-seg" style="background:#44ddaa"></div>
     <div class="scale-seg" style="background:#aadd44"></div>
     <div class="scale-seg" style="background:#ffdd00"></div>
     <div class="scale-seg" style="background:#ffaa00"></div>
     <div class="scale-seg" style="background:#ff6600"></div>
-    <div class="scale-seg" style="background:#ff2200"></div>
+    <div class="scale-seg" style="background:#ff3300"></div>
     <div class="scale-seg" style="background:#cc00cc"></div>
   </div>
-  <div class="scale-labels">
-    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5-</span><span>5+</span><span>6-</span><span>6+</span><span>7</span>
+  <div class="scale-lbl">
+    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
+    <span>5−</span><span>5+</span><span>6−</span><span>6+</span><span>7</span>
   </div>
 
-  <!-- Event log -->
-  <div class="event-log-wrap" id="event-log"></div>
+  <div class="evt-log" id="evt-log"></div>
 
-  <!-- Controls -->
   <div class="controls">
     <button id="pause-btn">Pause</button>
     <button class="danger" id="reset-btn">Reset Peak</button>
     <button id="calib-btn">Calibrate</button>
   </div>
 
+</div><!-- /app -->
+
+<!-- Settings / streaming panel -->
+<div id="settings-panel">
+  <div class="settings-sheet">
+    <h3>Stream to Computer <button class="icon-btn" id="close-settings" style="font-size:1.2rem">✕</button></h3>
+
+    <div>
+      <label for="ws-url">Server URL (run <code>seismophone_server.py</code> on your computer)</label>
+      <input type="text" id="ws-url" placeholder="ws://192.168.1.100:8765" inputmode="url" autocomplete="off" autocapitalize="none">
+    </div>
+
+    <div class="settings-row">
+      <button id="ws-connect-btn" class="primary" style="flex:2">Connect</button>
+      <button id="ws-disconnect-btn" style="flex:1;display:none">Disconnect</button>
+    </div>
+
+    <div class="ws-status off" id="ws-status">● Not connected</div>
+
+    <div style="font-size:.65rem;color:var(--dim);line-height:1.6">
+      Start the Python server on your computer, enter its IP above, then tap Connect.
+      The computer dashboard will show your live data.
+    </div>
+  </div>
 </div>
 
 <script>
 'use strict';
 
-// ─────────────────────────────────────────────
-//  Constants & state
-// ─────────────────────────────────────────────
-const CHART_SECONDS = 30;
-const SAMPLE_RATE_APPROX = 50; // Hz estimate; actual varies
-const MAX_POINTS = CHART_SECONDS * SAMPLE_RATE_APPROX;
-const GRAVITY_ALPHA = 0.85;     // high-pass filter coeff (removes gravity)
-const VEL_DECAY = 0.998;        // drift correction for velocity integration
-const NOISE_ALPHA = 0.005;      // slow noise floor tracker
-const EVENT_THRESHOLD_GAL = 3;  // Gal to trigger event log
+// ── Constants ──────────────────────────────────────────────────────────────
+const CHART_SEC    = 30;
+const EST_HZ       = 50;
+const MAX_PTS      = CHART_SEC * EST_HZ;
+const GRAV_ALPHA   = 0.85;
+const VEL_DECAY    = 0.998;
+const NOISE_ALPHA  = 0.005;
+const EVENT_GAL    = 3;
+const EVENT_COOL   = 5000;
 
-let running = false;
-let listener = null;
-let lastTime = null;
-
-// Filter state
-let gravX = 0, gravY = 0, gravZ = 9.8; // start assuming phone vertical
+// ── State ──────────────────────────────────────────────────────────────────
+let running = false, listener = null, lastTime = null;
+let gravX = 0, gravY = 0, gravZ = 9.8;
 let velX = 0, velY = 0, velZ = 0;
-let noiseFloor = 0.02; // Gal, updated during calibration
+let noiseFloor = 0.02;
+let calibrating = false, calibSamples = [];
+let peakBuf = [], velBuf = [];
+let pgaPeak = 0, pgvPeak = 0;
+let lastEvent = 0, lastDisplay = 0;
 
-// Calibration
-let calibrating = false;
-let calibSamples = [];
+// Ring buffers for chart
+const dX = new Float32Array(MAX_PTS);
+const dY = new Float32Array(MAX_PTS);
+const dZ = new Float32Array(MAX_PTS);
+const dV = new Float32Array(MAX_PTS);
+let ptr = 0;
 
-// Peak tracking (60s rolling window)
-const PEAK_WINDOW_MS = 60000;
-let peakBuf = []; // { t, gal }
-let pgaPeak = 0;
-let pgvPeak = 0;
-let peakVelBuf = []; // { t, cms }
+// WebSocket streaming
+let ws = null;
+let wsSendBuf = null; // latest packet, sent on next frame
 
-// Chart data buffers
-const BUF = MAX_POINTS;
-const dataX = new Array(BUF).fill(0);
-const dataY = new Array(BUF).fill(0);
-const dataZ = new Array(BUF).fill(0);
-const dataV = new Array(BUF).fill(0);
-let bufPtr = 0;
+// ── Seismic math ───────────────────────────────────────────────────────────
 
-// Event tracking
-let lastEventTime = 0;
-const EVENT_COOLDOWN_MS = 5000;
+function shindoFloat(pgaGal) {
+  if (pgaGal < 0.001) return null;
+  return 2 * Math.log10(pgaGal) + 0.94;
+}
 
-// Display update throttle
-let lastDisplayUpdate = 0;
-const DISPLAY_INTERVAL_MS = 80;
+const SHINDO_LABELS  = ['0','1','2','3','4','5−','5+','6−','6+','7'];
+const SHINDO_COLORS  = ['#555','#66aaff','#44ddaa','#aadd44','#ffdd00','#ffaa00','#ff6600','#ff3300','#dd0000','#cc00cc'];
+const SHINDO_BOUNDS  = [0.5, 1.5, 2.5, 3.5, 4.5, 5.0, 5.5, 6.0, 6.5];
 
-// ─────────────────────────────────────────────
-//  Chart setup
-// ─────────────────────────────────────────────
-const ctx = document.getElementById('chart').getContext('2d');
+function shindoIndex(I) {
+  if (I === null || I === undefined) return -1;
+  for (let i = 0; i < SHINDO_BOUNDS.length; i++) {
+    if (I < SHINDO_BOUNDS[i]) return i;
+  }
+  return 9;
+}
 
-const makeDataset = (label, color, data) => ({
-  label,
-  data,
-  borderColor: color,
-  borderWidth: 1.2,
-  pointRadius: 0,
-  tension: 0.2,
-  fill: false,
-});
+function mmiFloat(pgaGal) {
+  if (pgaGal < 0.05) return 1.0;
+  const lp = Math.log10(pgaGal);
+  const v = pgaGal < 39 ? 1.78 * lp + 1.55 : 3.70 * lp - 1.60;
+  return Math.max(1.0, Math.min(12.0, v));
+}
 
-const chart = new Chart(ctx, {
+const MMI_ROMAN = ['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+const MMI_DESC  = ['','Not felt','Weak','Weak','Light','Moderate','Strong','Very strong','Severe','Violent','Extreme','Extreme','Extreme'];
+
+// ── Chart ──────────────────────────────────────────────────────────────────
+const chart = new Chart(document.getElementById('chart').getContext('2d'), {
   type: 'line',
   data: {
-    labels: new Array(BUF).fill(''),
+    labels: new Array(MAX_PTS).fill(''),
     datasets: [
-      makeDataset('X', '#44aaff', [...dataX]),
-      makeDataset('Y', '#2ecc71', [...dataY]),
-      makeDataset('Z', '#e74c3c', [...dataZ]),
-      makeDataset('Vector', '#f39c12', [...dataV]),
+      { label:'X', data: Array.from(dX), borderColor:'#44aaff', borderWidth:1.1, pointRadius:0, tension:.2, fill:false },
+      { label:'Y', data: Array.from(dY), borderColor:'#2ecc71', borderWidth:1.1, pointRadius:0, tension:.2, fill:false },
+      { label:'Z', data: Array.from(dZ), borderColor:'#e74c3c', borderWidth:1.1, pointRadius:0, tension:.2, fill:false },
+      { label:'V', data: Array.from(dV), borderColor:'#f39c12', borderWidth:1.4, pointRadius:0, tension:.2, fill:false },
     ],
   },
   options: {
-    animation: false,
-    responsive: true,
-    maintainAspectRatio: false,
+    animation: false, responsive: true, maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
       x: { display: false },
       y: {
-        grid: { color: '#1a1a2e' },
-        ticks: {
-          color: '#5a607a',
-          font: { family: 'monospace', size: 9 },
-          maxTicksLimit: 6,
-          callback: v => v.toFixed(1),
-        },
-        title: { display: true, text: 'Gal', color: '#5a607a', font: { size: 9 } },
+        grid: { color: '#13132a' },
+        ticks: { color:'#5a607a', font:{family:'monospace',size:9}, maxTicksLimit:5, callback: v => v.toFixed(1) },
+        title: { display:true, text:'Gal', color:'#5a607a', font:{size:9} },
       },
     },
   },
 });
 
-// ─────────────────────────────────────────────
-//  Seismic computations
-// ─────────────────────────────────────────────
-
-function calcShindoIndex(pgaGal) {
-  if (pgaGal < 0.01) return -1;
-  const I = 2 * Math.log10(pgaGal) + 0.94;
-  if (I < 0.5)  return 0;
-  if (I < 1.5)  return 1;
-  if (I < 2.5)  return 2;
-  if (I < 3.5)  return 3;
-  if (I < 4.5)  return 4;
-  if (I < 5.0)  return 5;  // 5-
-  if (I < 5.5)  return 6;  // 5+
-  if (I < 6.0)  return 7;  // 6-
-  if (I < 6.5)  return 8;  // 6+
-  return 9;                 // 7
-}
-
-const SHINDO_LABELS = ['0', '1', '2', '3', '4', '5−', '5+', '6−', '6+', '7'];
-const SHINDO_COLORS = ['#444', '#66aaff', '#44ddaa', '#aadd44', '#ffdd00', '#ffaa00', '#ff8800', '#ff4400', '#ff2200', '#cc00cc'];
-
-function calcMMI(pgaGal) {
-  if (pgaGal < 0.05) return 1;
-  const lp = Math.log10(pgaGal);
-  let mmi = pgaGal < 39 ? 1.78 * lp + 1.55 : 3.70 * lp - 1.60;
-  return Math.max(1, Math.min(12, Math.round(mmi)));
-}
-
-const MMI_ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
-
-// ─────────────────────────────────────────────
-//  Motion handler
-// ─────────────────────────────────────────────
-
+// ── Motion handler ─────────────────────────────────────────────────────────
 function onMotion(e) {
   if (!running) return;
-
   const now = performance.now();
-  const dt = lastTime ? Math.min((now - lastTime) / 1000, 0.1) : 0.02;
-  lastTime = now;
+  const dt  = lastTime ? Math.min((now - lastTime) / 1000, 0.1) : 0.02;
+  lastTime  = now;
 
-  // Raw acceleration including gravity (m/s²)
   const src = e.accelerationIncludingGravity || {};
-  const rawX = src.x ?? 0;
-  const rawY = src.y ?? 0;
-  const rawZ = src.z ?? 0;
+  const rX = src.x ?? 0, rY = src.y ?? 0, rZ = src.z ?? 0;
 
-  // High-pass filter: estimate gravity, subtract it
-  gravX = GRAVITY_ALPHA * gravX + (1 - GRAVITY_ALPHA) * rawX;
-  gravY = GRAVITY_ALPHA * gravY + (1 - GRAVITY_ALPHA) * rawY;
-  gravZ = GRAVITY_ALPHA * gravZ + (1 - GRAVITY_ALPHA) * rawZ;
+  gravX = GRAV_ALPHA * gravX + (1 - GRAV_ALPHA) * rX;
+  gravY = GRAV_ALPHA * gravY + (1 - GRAV_ALPHA) * rY;
+  gravZ = GRAV_ALPHA * gravZ + (1 - GRAV_ALPHA) * rZ;
 
-  let dynX = rawX - gravX;
-  let dynY = rawY - gravY;
-  let dynZ = rawZ - gravZ;
+  // Dynamic accel in Gal
+  const aX = (rX - gravX) * 100;
+  const aY = (rY - gravY) * 100;
+  const aZ = (rZ - gravZ) * 100;
+  const mag = Math.sqrt(aX*aX + aY*aY + aZ*aZ);
+  const vec = Math.max(0, mag - noiseFloor);
 
-  // Convert to Gal (cm/s²)
-  dynX *= 100; dynY *= 100; dynZ *= 100;
-
-  // Subtract noise floor
-  const mag = Math.sqrt(dynX*dynX + dynY*dynY + dynZ*dynZ);
-  const corrMag = Math.max(0, mag - noiseFloor);
-
-  // Velocity integration with drift decay
-  velX = (velX + dynX * dt) * VEL_DECAY;
-  velY = (velY + dynY * dt) * VEL_DECAY;
-  velZ = (velZ + dynZ * dt) * VEL_DECAY;
+  // Velocity integration
+  velX = (velX + aX * dt) * VEL_DECAY;
+  velY = (velY + aY * dt) * VEL_DECAY;
+  velZ = (velZ + aZ * dt) * VEL_DECAY;
   const velMag = Math.sqrt(velX*velX + velY*velY + velZ*velZ);
 
-  // Push to ring buffers
-  dataX[bufPtr] = dynX;
-  dataY[bufPtr] = dynY;
-  dataZ[bufPtr] = dynZ;
-  dataV[bufPtr] = corrMag;
-  bufPtr = (bufPtr + 1) % BUF;
+  // Ring buffer
+  dX[ptr] = aX; dY[ptr] = aY; dZ[ptr] = aZ; dV[ptr] = vec;
+  ptr = (ptr + 1) % MAX_PTS;
 
-  // Rolling 60s peak window
-  peakBuf.push({ t: now, gal: corrMag });
-  peakVelBuf.push({ t: now, cms: velMag });
-  const cutoff = now - PEAK_WINDOW_MS;
-  while (peakBuf.length && peakBuf[0].t < cutoff) peakBuf.shift();
-  while (peakVelBuf.length && peakVelBuf[0].t < cutoff) peakVelBuf.shift();
+  // 60s rolling peaks
+  peakBuf.push({ t: now, v: vec });
+  velBuf.push({ t: now, v: velMag });
+  const cut = now - 60000;
+  while (peakBuf.length && peakBuf[0].t < cut) peakBuf.shift();
+  while (velBuf.length  && velBuf[0].t  < cut) velBuf.shift();
+  pgaPeak = peakBuf.reduce((m, p) => Math.max(m, p.v), 0);
+  pgvPeak = velBuf.reduce((m,  p) => Math.max(m, p.v), 0);
 
-  pgaPeak = peakBuf.reduce((m, p) => Math.max(m, p.gal), 0);
-  pgvPeak = peakVelBuf.reduce((m, p) => Math.max(m, p.cms), 0);
-
-  // Calibration sample collection
-  if (calibrating) {
-    calibSamples.push(mag);
-    if (calibSamples.length >= 150) finishCalibration();
-    return;
-  }
-
-  // Noise floor slow track when calm
-  if (corrMag < noiseFloor * 3) {
-    noiseFloor = noiseFloor * (1 - NOISE_ALPHA) + mag * NOISE_ALPHA;
-  }
+  if (calibrating) { calibSamples.push(mag); if (calibSamples.length >= 150) finishCalib(); return; }
+  if (vec < noiseFloor * 3) noiseFloor = noiseFloor * (1 - NOISE_ALPHA) + mag * NOISE_ALPHA;
 
   // Event detection
-  if (corrMag > EVENT_THRESHOLD_GAL && now - lastEventTime > EVENT_COOLDOWN_MS) {
-    lastEventTime = now;
-    logEvent(corrMag, velMag);
+  if (vec > EVENT_GAL && now - lastEvent > EVENT_COOL) {
+    lastEvent = now;
+    logEvent(vec, velMag);
   }
 
-  // Throttled display update
-  if (now - lastDisplayUpdate > DISPLAY_INTERVAL_MS) {
-    lastDisplayUpdate = now;
-    updateDisplay(dynX, dynY, dynZ, corrMag);
-  }
+  // WS packet (prepared here, sent in display update)
+  const si = shindoFloat(pgaPeak);
+  const mi = mmiFloat(pgaPeak);
+  wsSendBuf = JSON.stringify({
+    t: Date.now(), ax: +aX.toFixed(3), ay: +aY.toFixed(3), az: +aZ.toFixed(3),
+    vec: +vec.toFixed(3), pga: +pgaPeak.toFixed(3), pgv: +pgvPeak.toFixed(4),
+    shindo_i: si !== null ? +si.toFixed(3) : null,
+    shindo: si !== null ? SHINDO_LABELS[shindoIndex(si)] : null,
+    mmi: +mi.toFixed(3),
+  });
+
+  if (now - lastDisplay > 80) { lastDisplay = now; updateDisplay(aX, aY, aZ, vec, si, mi); }
 }
 
-// ─────────────────────────────────────────────
-//  Display update
-// ─────────────────────────────────────────────
-
-let frameReq = null;
-
-function updateDisplay(ax, ay, az, vec) {
-  // Rebuild chart datasets in ring-buffer order
-  const len = BUF;
-  const start = bufPtr;
-  const xs = new Array(len), ys = new Array(len), zs = new Array(len), vs = new Array(len);
-  for (let i = 0; i < len; i++) {
-    const idx = (start + i) % len;
-    xs[i] = dataX[idx]; ys[i] = dataY[idx]; zs[i] = dataZ[idx]; vs[i] = dataV[idx];
+// ── Display ────────────────────────────────────────────────────────────────
+function updateDisplay(aX, aY, aZ, vec, si, mi) {
+  // Chart data in order
+  const xs=[], ys=[], zs=[], vs=[];
+  for (let i = 0; i < MAX_PTS; i++) {
+    const idx = (ptr + i) % MAX_PTS;
+    xs.push(dX[idx]); ys.push(dY[idx]); zs.push(dZ[idx]); vs.push(dV[idx]);
   }
   chart.data.datasets[0].data = xs;
   chart.data.datasets[1].data = ys;
@@ -643,145 +473,125 @@ function updateDisplay(ax, ay, az, vec) {
   chart.data.datasets[3].data = vs;
   chart.update('none');
 
-  // Axis bars (centred, max 100 Gal = full bar)
-  const maxGal = 20;
-  setBar('bar-x', 'val-x', ax, maxGal);
-  setBar('bar-y', 'val-y', ay, maxGal);
-  setBar('bar-z', 'val-z', az, maxGal);
+  // Axis bars
+  const MAX_G = 15;
+  setBar('bar-x', 'val-x', aX, MAX_G);
+  setBar('bar-y', 'val-y', aY, MAX_G);
+  setBar('bar-z', 'val-z', aZ, MAX_G);
 
-  // PGA / PGV
+  // PGA
   const pgaEl = document.getElementById('pga-val');
-  const pgvEl = document.getElementById('pgv-val');
   pgaEl.textContent = pgaPeak.toFixed(2);
-  pgvEl.textContent = pgvPeak.toFixed(3);
-
   colorMetric(pgaEl, pgaPeak, 2, 20);
+
+  // PGV
+  const pgvEl = document.getElementById('pgv-val');
+  pgvEl.textContent = pgvPeak.toFixed(3);
   colorMetric(pgvEl, pgvPeak, 0.1, 1);
 
-  // Shindo
-  const shindoIdx = calcShindoIndex(pgaPeak);
-  const shindoEl = document.getElementById('shindo-val');
-  shindoEl.textContent = shindoIdx < 0 ? '—' : SHINDO_LABELS[shindoIdx];
-  shindoEl.style.color = shindoIdx < 0 ? 'var(--dim)' : SHINDO_COLORS[shindoIdx];
+  // Shindo (continuous I_inst)
+  const shindoEl  = document.getElementById('shindo-val');
+  const shindoJma = document.getElementById('shindo-jma');
+  if (si === null) {
+    shindoEl.textContent = '—'; shindoEl.style.color = 'var(--dim)';
+    shindoJma.textContent = 'JMA —'; shindoJma.style.color = 'var(--dim)';
+  } else {
+    const idx = shindoIndex(si);
+    const displayI = Math.max(0, si);
+    shindoEl.textContent  = displayI.toFixed(2);
+    shindoEl.style.color  = SHINDO_COLORS[Math.max(0, idx)];
+    shindoJma.textContent = 'JMA ' + (idx >= 0 ? SHINDO_LABELS[idx] : '0');
+    shindoJma.style.color = SHINDO_COLORS[Math.max(0, idx)];
+  }
 
-  // MMI
-  const mmi = calcMMI(pgaPeak);
-  const mmiEl = document.getElementById('mmi-val');
-  mmiEl.textContent = MMI_ROMAN[mmi] || 'I';
-  colorMetric(mmiEl, mmi, 3, 6);
+  // MMI (continuous float)
+  const mmiEl    = document.getElementById('mmi-val');
+  const mmiRoman = document.getElementById('mmi-roman');
+  mmiEl.textContent    = mi.toFixed(2);
+  mmiRoman.textContent = MMI_ROMAN[Math.round(mi)] + ' — ' + (MMI_DESC[Math.round(mi)] || '');
+  colorMetric(mmiEl, mi, 4, 6);
 
-  // Status dot color on event
+  // Status dot
   const dot = document.getElementById('status-dot');
-  if (vec > EVENT_THRESHOLD_GAL * 2) {
-    dot.className = 'event';
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    dot.className = vec > EVENT_GAL * 2 ? 'event' : 'stream';
   } else {
-    dot.className = 'active';
+    dot.className = vec > EVENT_GAL * 2 ? 'event' : 'active';
+  }
+
+  // Send over WebSocket
+  if (ws && ws.readyState === WebSocket.OPEN && wsSendBuf) {
+    try { ws.send(wsSendBuf); } catch(_) {}
+    wsSendBuf = null;
   }
 }
 
-function setBar(id, valId, val, maxGal) {
+function setBar(id, valId, v, max) {
   const bar = document.getElementById(id);
-  const valEl = document.getElementById(valId);
-  const pct = Math.min(Math.abs(val) / maxGal * 50, 50);
-  if (val >= 0) {
-    bar.style.left = '50%';
-    bar.style.width = pct + '%';
-  } else {
-    bar.style.left = (50 - pct) + '%';
-    bar.style.width = pct + '%';
-  }
-  valEl.textContent = val.toFixed(2);
+  const pct = Math.min(Math.abs(v) / max * 50, 50);
+  bar.style.left  = v >= 0 ? '50%' : (50 - pct) + '%';
+  bar.style.width = pct + '%';
+  document.getElementById(valId).textContent = v.toFixed(2);
 }
 
-function colorMetric(el, val, warnThresh, highThresh) {
-  el.classList.remove('elevated', 'high');
-  if (val >= highThresh) el.classList.add('high');
-  else if (val >= warnThresh) el.classList.add('elevated');
+function colorMetric(el, v, warn, hi) {
+  el.classList.remove('warn', 'high');
+  if (v >= hi) el.classList.add('high');
+  else if (v >= warn) el.classList.add('warn');
 }
 
-// ─────────────────────────────────────────────
-//  Event log
-// ─────────────────────────────────────────────
-
+// ── Event log ──────────────────────────────────────────────────────────────
 function logEvent(gal, cms) {
-  const log = document.getElementById('event-log');
-  const now = new Date();
-  const ts = now.toLocaleTimeString('en', { hour12: false });
-  const si = calcShindoIndex(gal);
-  const mmi = calcMMI(gal);
-
+  const log = document.getElementById('evt-log');
+  const si  = shindoFloat(gal);
+  const idx = shindoIndex(si);
+  const mi  = mmiFloat(gal);
+  const ts  = new Date().toLocaleTimeString('en', { hour12: false });
   const item = document.createElement('div');
-  item.className = 'event-log-item';
+  item.className = 'evt-item';
   item.innerHTML = `
-    <span class="evt-time">${ts}</span>
-    <span class="evt-info">PGA ${gal.toFixed(1)} Gal · PGV ${cms.toFixed(2)} cm/s · MMI ${MMI_ROMAN[mmi]}</span>
-    <span class="evt-shindo">${si >= 0 ? 'S' + SHINDO_LABELS[si] : '—'}</span>
-  `;
+    <span class="evt-ts">${ts}</span>
+    <span class="evt-info">PGA ${gal.toFixed(1)} Gal · PGV ${cms.toFixed(2)} cm/s · MMI ${mi.toFixed(2)}</span>
+    <span class="evt-si" style="color:${SHINDO_COLORS[Math.max(0,idx)]}">
+      ${si !== null ? 'S' + Math.max(0,si).toFixed(2) : '—'}
+    </span>`;
   log.prepend(item);
-  // Keep max 5 events visible
   while (log.children.length > 5) log.removeChild(log.lastChild);
 }
 
-// ─────────────────────────────────────────────
-//  Calibration
-// ─────────────────────────────────────────────
-
-function startCalibration() {
+// ── Calibration ────────────────────────────────────────────────────────────
+function startCalib() {
   if (!running) return;
-  calibSamples = [];
-  calibrating = true;
+  calibSamples = []; calibrating = true;
   document.getElementById('calib-btn').textContent = 'Calibrating…';
   document.getElementById('calib-btn').disabled = true;
 }
-
-function finishCalibration() {
+function finishCalib() {
   calibrating = false;
-  const sorted = calibSamples.slice().sort((a, b) => a - b);
-  // Use 90th percentile as noise floor (ignore rare spikes)
-  const idx = Math.floor(sorted.length * 0.9);
-  noiseFloor = Math.max(0.01, sorted[idx] * 100); // to Gal
-  document.getElementById('calib-btn').textContent = 'Calibrate';
-  document.getElementById('calib-btn').disabled = false;
-
+  const sorted = Float32Array.from(calibSamples).sort();
+  noiseFloor = Math.max(0.01, sorted[Math.floor(sorted.length * 0.9)] * 100);
   const btn = document.getElementById('calib-btn');
-  btn.textContent = `✓ ${noiseFloor.toFixed(2)} Gal`;
-  setTimeout(() => { btn.textContent = 'Calibrate'; }, 2000);
+  btn.disabled = false;
+  btn.textContent = `✓ ${noiseFloor.toFixed(2)}`;
+  setTimeout(() => { btn.textContent = 'Calibrate'; }, 2500);
 }
 
-// ─────────────────────────────────────────────
-//  Start / stop
-// ─────────────────────────────────────────────
-
+// ── Sensor start/stop ──────────────────────────────────────────────────────
 async function requestAndStart() {
-  // iOS 13+ requires explicit permission
-  if (typeof DeviceMotionEvent !== 'undefined' &&
-      typeof DeviceMotionEvent.requestPermission === 'function') {
-    try {
-      const perm = await DeviceMotionEvent.requestPermission();
-      if (perm !== 'granted') {
-        alert('Motion sensor permission denied. Please allow in Settings → Safari → Motion & Orientation Access.');
-        return;
-      }
-    } catch (err) {
-      alert('Could not request motion permission: ' + err.message);
-      return;
+  if (typeof DeviceMotionEvent === 'undefined') {
+    alert('DeviceMotion API not available.\nOpen in Safari or Chrome on a real phone.'); return;
+  }
+  if (typeof DeviceMotionEvent.requestPermission === 'function') {
+    const perm = await DeviceMotionEvent.requestPermission().catch(err => {
+      alert('Permission error: ' + err.message); return 'denied';
+    });
+    if (perm !== 'granted') {
+      alert('Motion permission denied.\niPhone: Settings → Safari → Motion & Orientation Access'); return;
     }
   }
-
-  if (typeof DeviceMotionEvent === 'undefined') {
-    alert('DeviceMotion API not available on this browser/device.\n\nTry Chrome or Safari on a physical phone.');
-    return;
-  }
-
-  startSensor();
-}
-
-function startSensor() {
-  running = true;
-  lastTime = null;
+  running = true; lastTime = null;
   listener = onMotion;
   window.addEventListener('devicemotion', listener, { passive: true });
-
   document.getElementById('perm-screen').style.display = 'none';
   document.getElementById('app').classList.add('visible');
   document.getElementById('status-dot').classList.add('active');
@@ -790,84 +600,94 @@ function startSensor() {
 }
 
 function togglePause() {
-  if (!listener) return;
   running = !running;
   document.getElementById('pause-btn').textContent = running ? 'Pause' : 'Resume';
   document.getElementById('status-text').textContent = running ? 'LIVE' : 'PAUSED';
-  if (running) {
-    document.getElementById('status-dot').classList.add('active');
-    lastTime = null;
-  } else {
-    document.getElementById('status-dot').classList.remove('active');
-  }
+  if (running) { document.getElementById('status-dot').className = 'active'; lastTime = null; }
+  else          { document.getElementById('status-dot').className = ''; }
 }
 
 function resetPeaks() {
-  peakBuf = [];
-  peakVelBuf = [];
-  pgaPeak = 0;
-  pgvPeak = 0;
+  peakBuf = []; velBuf = []; pgaPeak = 0; pgvPeak = 0;
   velX = 0; velY = 0; velZ = 0;
-  document.getElementById('pga-val').textContent = '0.00';
-  document.getElementById('pgv-val').textContent = '0.000';
+  ['pga-val','pgv-val'].forEach(id => document.getElementById(id).textContent = '0.00');
   document.getElementById('shindo-val').textContent = '—';
-  document.getElementById('mmi-val').textContent = 'I';
+  document.getElementById('mmi-val').textContent    = '—';
 }
 
-// ─────────────────────────────────────────────
-//  Wire up buttons
-// ─────────────────────────────────────────────
+// ── WebSocket streaming ────────────────────────────────────────────────────
+function wsConnect() {
+  const url = document.getElementById('ws-url').value.trim();
+  if (!url) return;
+  localStorage.setItem('wsUrl', url);
+  setWsStatus('connecting', 'Connecting…');
+  ws = new WebSocket(url);
+  ws.onopen    = () => { setWsStatus('connected', '● Connected to ' + url); updateStreamBtn(); };
+  ws.onclose   = () => { ws = null; setWsStatus('off', '● Disconnected'); updateStreamBtn(); };
+  ws.onerror   = () => { ws = null; setWsStatus('error', '● Connection failed'); updateStreamBtn(); };
+}
+function wsDisconnect() { if (ws) { ws.close(); ws = null; } }
+function setWsStatus(cls, msg) {
+  const el = document.getElementById('ws-status');
+  el.className = 'ws-status ' + cls;
+  el.textContent = msg;
+}
+function updateStreamBtn() {
+  const connected = ws && ws.readyState === WebSocket.OPEN;
+  document.getElementById('ws-connect-btn').style.display    = connected ? 'none'  : '';
+  document.getElementById('ws-disconnect-btn').style.display = connected ? ''      : 'none';
+  document.getElementById('stream-btn').classList.toggle('active', connected);
+}
 
-document.getElementById('start-btn').addEventListener('click', requestAndStart);
-document.getElementById('pause-btn').addEventListener('click', togglePause);
-document.getElementById('reset-btn').addEventListener('click', resetPeaks);
-document.getElementById('calib-btn').addEventListener('click', startCalibration);
+// Restore saved URL
+document.getElementById('ws-url').value = localStorage.getItem('wsUrl') || '';
 
-// ─────────────────────────────────────────────
-//  Service worker registration (offline / PWA)
-// ─────────────────────────────────────────────
+// ── Settings panel ─────────────────────────────────────────────────────────
+document.getElementById('stream-btn').addEventListener('click', () => {
+  document.getElementById('settings-panel').classList.add('open');
+});
+document.getElementById('close-settings').addEventListener('click', () => {
+  document.getElementById('settings-panel').classList.remove('open');
+});
+document.getElementById('settings-panel').addEventListener('click', e => {
+  if (e.target === document.getElementById('settings-panel'))
+    document.getElementById('settings-panel').classList.remove('open');
+});
+document.getElementById('ws-connect-btn').addEventListener('click', wsConnect);
+document.getElementById('ws-disconnect-btn').addEventListener('click', wsDisconnect);
 
+// ── PWA install prompt ─────────────────────────────────────────────────────
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('install-btn').style.display = 'block';
+});
+document.getElementById('install-btn').addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  if (outcome === 'accepted') document.getElementById('install-btn').style.display = 'none';
+  deferredInstallPrompt = null;
+});
+
+// ── Button wiring ──────────────────────────────────────────────────────────
+document.getElementById('start-btn').addEventListener('click',  requestAndStart);
+document.getElementById('pause-btn').addEventListener('click',  togglePause);
+document.getElementById('reset-btn').addEventListener('click',  resetPeaks);
+document.getElementById('calib-btn').addEventListener('click',  startCalib);
+
+// ── Service worker (offline cache) ────────────────────────────────────────
 if ('serviceWorker' in navigator) {
-  const swCode = `
-    const CACHE = 'seismophone-v1';
-    self.addEventListener('install', e => {
-      e.waitUntil(caches.open(CACHE).then(c => c.add('/')));
-      self.skipWaiting();
-    });
-    self.addEventListener('fetch', e => {
-      e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
-    });
+  const sw = `
+    const C='sp-v2';
+    self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.add('/')));self.skipWaiting();});
+    self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});
   `;
-  const blob = new Blob([swCode], { type: 'application/javascript' });
-  const swURL = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swURL).catch(() => {});
+  navigator.serviceWorker.register(
+    URL.createObjectURL(new Blob([sw], { type: 'application/javascript' }))
+  ).catch(() => {});
 }
-
-// ─────────────────────────────────────────────
-//  Inline manifest for Chrome Android PWA install
-// ─────────────────────────────────────────────
-
-(function() {
-  const manifest = {
-    name: 'SeismoPhone',
-    short_name: 'SeismoPhone',
-    start_url: '.',
-    display: 'standalone',
-    background_color: '#080812',
-    theme_color: '#080812',
-    icons: [{
-      src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23080812'/><text y='70' x='10' font-size='70'>📳</text></svg>",
-      sizes: '192x192',
-      type: 'image/svg+xml'
-    }]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('link');
-  link.rel = 'manifest';
-  link.href = url;
-  document.head.appendChild(link);
-})();
 </script>
 </body>
 </html>
