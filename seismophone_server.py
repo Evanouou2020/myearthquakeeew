@@ -417,7 +417,13 @@ async def main():
     print("  Ctrl+C to stop.")
     print()
 
-    async with websockets.serve(ws_handler, "0.0.0.0", WS_PORT):
+    # Explicit socket binding so macOS doesn't silently restrict to localhost
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("0.0.0.0", WS_PORT))
+    sock.setblocking(False)
+
+    async with websockets.serve(ws_handler, sock=sock):
         await asyncio.Future()
 
 
