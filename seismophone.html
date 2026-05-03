@@ -309,6 +309,7 @@
     <button id="pause-btn">Pause</button>
     <button class="danger" id="reset-btn">Reset Max</button>
     <button id="calib-btn">Calibrate</button>
+    <button id="csv-btn">⬇ CSV</button>
   </div>
 
 </div><!-- /app -->
@@ -407,6 +408,10 @@ let lastEvent = 0, lastChartUpdate = 0, lastMetricUpdate = 0;
 // Instantaneous live values (current sample)
 let currentPGA = 0, currentPGV = 0;
 
+// CSV buffer — keeps last ~10 min at 50 Hz (capped at 30 000 rows)
+const CSV_HEADER = 'timestamp,ax_gal,ay_gal,az_gal,vec_gal,pga_gal,pgv_cms,shindo_i,mmi_pga,mmi_pgv';
+const csvBuf = [];
+
 // Session maximum
 let maxPGA = 0, maxPGV = 0, maxTime = null;
 
@@ -503,11 +508,13 @@ function onMotion(e) {
     lastEvent = now; logEvent(vec, velMag);
   }
 
+
   // Prepare WS packet
   const si   = shindoFloat(currentPGA);
   const mPGA = mmiFromPGA(currentPGA);
   const mPGV = mmiFromPGV(currentPGV);
   wsSendBuf = JSON.stringify({
+    role: 'phone',   // tells server this is a sensor sender, not a viewer
     t: Date.now(),
     ax: +aX.toFixed(3), ay: +aY.toFixed(3), az: +aZ.toFixed(3), vec: +vec.toFixed(3),
     live_pga: +currentPGA.toFixed(3), live_pgv: +currentPGV.toFixed(4),
@@ -519,6 +526,12 @@ function onMotion(e) {
     max_mmi_pga: +mmiFromPGA(maxPGA).toFixed(3),
     max_mmi_pgv: +mmiFromPGV(maxPGV).toFixed(3),
   });
+
+  // CSV buffer (si, mPGA, mPGV are in scope here)
+  csvBuf.push([Date.now(), +aX.toFixed(3), +aY.toFixed(3), +aZ.toFixed(3),
+    +vec.toFixed(3), +currentPGA.toFixed(3), +currentPGV.toFixed(4),
+    si !== null ? +si.toFixed(3) : '', +mPGA.toFixed(3), +mPGV.toFixed(3)]);
+  if (csvBuf.length > 30000) csvBuf.shift();
 
   // Chart updates fast (~80ms), metrics update slowly (250ms) so they're readable
   const doChart   = now - lastChartUpdate  > 80;
@@ -692,18 +705,23 @@ async function requestAndStart() {
       alert('Motion permission denied.\niPhone: Settings → Safari → Motion & Orientation Access'); return;
     }
   }
-  // Show app UI immediately but delay sensor start 0.5s so tap vibration decays
+  // Show app, then count down 3s so tap vibration fully decays before recording
   document.getElementById('perm-screen').style.display = 'none';
   document.getElementById('app').classList.add('visible');
-  document.getElementById('status-text').textContent = 'READY…';
 
-  setTimeout(() => {
+  let count = 3;
+  const statusText = document.getElementById('status-text');
+  statusText.textContent = `SET DOWN… ${count}`;
+  const tick = setInterval(() => {
+    count--;
+    if (count > 0) { statusText.textContent = `SET DOWN… ${count}`; return; }
+    clearInterval(tick);
     running = true; lastTime = null;
     listener = onMotion;
     window.addEventListener('devicemotion', listener, { passive: true });
     document.getElementById('status-dot').classList.add('active');
-    document.getElementById('status-text').textContent = 'LIVE';
-  }, 500);
+    statusText.textContent = 'LIVE';
+  }, 1000);
 }
 
 function togglePause() {
@@ -769,10 +787,25 @@ document.getElementById('ws-connect-btn').addEventListener('click', wsConnect);
 document.getElementById('ws-disconnect-btn').addEventListener('click', wsDisconnect);
 
 // ── Buttons ────────────────────────────────────────────────────────────────
+function downloadCSV() {
+  if (csvBuf.length === 0) { alert('No data recorded yet.'); return; }
+  const rows = csvBuf.map(r => r.join(',')).join('\n');
+  const blob = new Blob([CSV_HEADER + '\n' + rows], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'seismophone_' + new Date().toISOString().slice(0,19).replace(/:/g,'-') + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 document.getElementById('start-btn').addEventListener('click', requestAndStart);
 document.getElementById('pause-btn').addEventListener('click', togglePause);
 document.getElementById('reset-btn').addEventListener('click', resetMax);
 document.getElementById('calib-btn').addEventListener('click', startCalib);
+document.getElementById('csv-btn').addEventListener('click', downloadCSV);
 
 // ── PWA install prompt ─────────────────────────────────────────────────────
 let deferredPrompt = null;
