@@ -317,18 +317,22 @@
 <div id="settings-panel">
   <div class="settings-sheet">
     <h3>Stream to Computer <button class="icon-btn" id="close-settings" style="font-size:1.2rem">✕</button></h3>
+    <div style="font-size:.72rem;color:var(--dim);line-height:1.8">
+      <b style="color:var(--text)">1.</b> On your computer, open Terminal and run:<br>
+      <code style="color:var(--accent);font-size:.75rem">python3 seismophone_server.py</code><br>
+      <b style="color:var(--text)">2.</b> It prints a line like:<br>
+      <code style="color:var(--green);font-size:.75rem">➜ ws://192.168.x.x:8765</code><br>
+      <b style="color:var(--text)">3.</b> Type <em>that exact URL</em> below and tap Connect.
+    </div>
     <div>
-      <label for="ws-url">Server URL (run <code>seismophone_server.py</code> on your computer)</label>
-      <input type="text" id="ws-url" placeholder="ws://192.168.1.100:8765" inputmode="url" autocomplete="off" autocapitalize="none">
+      <label for="ws-url" style="color:var(--amber)">Server URL — type it here (don't use the grey placeholder)</label>
+      <input type="text" id="ws-url" placeholder="ws://YOUR.IP.HERE:8765" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false">
     </div>
     <div class="settings-row">
       <button id="ws-connect-btn" class="primary" style="flex:2">Connect</button>
       <button id="ws-disconnect-btn" style="flex:1;display:none">Disconnect</button>
     </div>
     <div class="ws-status off" id="ws-status">● Not connected</div>
-    <div style="font-size:.65rem;color:var(--dim);line-height:1.6">
-      Same Wi-Fi required. The server prints your IP when it starts.
-    </div>
   </div>
 </div>
 
@@ -731,7 +735,7 @@ function resetMax() {
 // ── WebSocket ──────────────────────────────────────────────────────────────
 function wsConnect() {
   const url = document.getElementById('ws-url').value.trim();
-  if (!url) return;
+  if (!url) { setWsStatus('error', '⚠ Paste the ws:// URL from your terminal first'); return; }
   localStorage.setItem('wsUrl', url);
   setWsStatus('connecting', 'Connecting…');
   ws = new WebSocket(url);
