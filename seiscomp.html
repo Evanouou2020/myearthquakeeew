@@ -36,6 +36,20 @@ body{background:var(--bg);color:var(--txt);font-family:'SF Mono',monospace;heigh
 .pr{background:#2d0f0f;color:var(--red);border:1px solid #5a1a1a}
 #utc{margin-left:auto;color:var(--dim);font-size:10px;white-space:nowrap}
 #lbanner{font-size:11px;color:var(--red);font-weight:600;white-space:nowrap}
+/* Alert notification toast */
+#alert-toast{position:fixed;top:12px;left:50%;transform:translateX(-50%) translateY(-120px);
+  z-index:9999;background:#1a0505;border:1.5px solid var(--red);border-radius:8px;
+  padding:12px 20px;min-width:320px;max-width:520px;box-shadow:0 8px 32px rgba(248,81,73,.35);
+  transition:transform .35s cubic-bezier(.4,0,.2,1);pointer-events:none;text-align:center}
+#alert-toast.show{transform:translateX(-50%) translateY(0);pointer-events:all}
+#alert-toast .at-mag{font-size:26px;font-weight:700;color:var(--red);line-height:1}
+#alert-toast .at-mag.mm{color:var(--yel)}
+#alert-toast .at-mag.ml{color:var(--grn)}
+#alert-toast .at-loc{font-size:12px;color:var(--txt);margin-top:4px}
+#alert-toast .at-time{font-size:10px;color:var(--mut);margin-top:2px}
+#alert-toast .at-close{position:absolute;top:6px;right:10px;cursor:pointer;color:var(--mut);
+  font-size:14px;pointer-events:all}
+#alert-toast .at-close:hover{color:var(--txt)}
 #main{display:flex;flex:1;overflow:hidden;flex-direction:column}
 #top-row{display:flex;flex:1;overflow:hidden;min-height:0}
 /* Events panel */
@@ -154,6 +168,12 @@ canvas.scrttv-cv{flex:1;height:52px;background:#060a10;display:block;cursor:cros
               display:flex;align-items:center;padding:0 4px;font-size:8px;color:var(--dim);
               position:sticky;bottom:0;z-index:10;flex-shrink:0}
 </style></head><body>
+<div id="alert-toast">
+  <span class="at-close" onclick="dismissAlert()">✕</span>
+  <div class="at-mag" id="at-mag">M?</div>
+  <div class="at-loc" id="at-loc"></div>
+  <div class="at-time" id="at-time"></div>
+</div>
 <div id="hdr">
   <h1>SeisComP Live Dashboard</h1>
   <span class="pill pg" id="blive">— / —</span>
@@ -782,6 +802,31 @@ socket.on('events',msg=>{
       <div class="evph">${ev.phases} phases</div>
     </div>`;
   }).join('');
+});
+
+let _alertTimer=null;
+function dismissAlert(){
+  document.getElementById('alert-toast').classList.remove('show');
+  if(_alertTimer){clearTimeout(_alertTimer);_alertTimer=null;}
+}
+function showAlertToast(ev){
+  const mag=parseFloat(ev.mag)||0;
+  const mc=mag>=4?'mh':mag>=3?'mm':'ml';
+  const ns=ev.lat>=0?'N':'S', ew=ev.lon<=0?'W':'E';
+  document.getElementById('at-mag').className='at-mag '+mc;
+  document.getElementById('at-mag').textContent='M'+(ev.mag||'?')+' Earthquake';
+  document.getElementById('at-loc').textContent=
+    Math.abs(ev.lat).toFixed(3)+'°'+ns+'  '+Math.abs(ev.lon).toFixed(3)+'°'+ew+
+    '  ·  '+ev.depth+' km depth  ·  '+ev.phases+' phases';
+  document.getElementById('at-time').textContent=(ev.origin_time||'').slice(0,19)+' UTC  |  '+ev.evid;
+  const t=document.getElementById('alert-toast');
+  t.classList.add('show');
+  if(_alertTimer) clearTimeout(_alertTimer);
+  if(mag<3) _alertTimer=setTimeout(dismissAlert,15000);
+}
+socket.on('alert_event', ev => {
+  showAlertToast(ev);
+  openEv(ev.evid);
 });
 
 let _evMap=null,_evMapEvid=null;
