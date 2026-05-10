@@ -821,8 +821,8 @@ function showAlertToast(ev){
   document.getElementById('at-time').textContent=(ev.origin_time||'').slice(0,19)+' UTC  |  '+ev.evid;
   const t=document.getElementById('alert-toast');
   t.classList.add('show');
-  if(_alertTimer) clearTimeout(_alertTimer);
-  if(mag<3) _alertTimer=setTimeout(dismissAlert,15000);
+  if(_alertTimer){clearTimeout(_alertTimer);_alertTimer=null;}
+  // Toast stays until manually dismissed — click ✕ to close
 }
 socket.on('alert_event', ev => {
   showAlertToast(ev);
