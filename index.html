@@ -403,7 +403,8 @@
   <span class="tb-sep">|</span>
   <span>REGION: SAN RAMON, CA</span>
   <div class="tb-right">
-    <button id="monitor-btn" onclick="openMonitor()">▲ SeisComP Live</button>
+    <button id="monitor-btn" onclick="openMonitor('dashboard')" style="margin-right:4px">▲ SeisComP Live</button>
+    <button id="monitor-btn" onclick="openMonitor('map')" style="border:1px solid var(--border-bright);background:transparent;color:var(--text-dim);font-family:var(--mono);font-size:0.7rem;padding:5px 12px;border-radius:2px;cursor:pointer">🗺 Live Map</button>
     <span class="tb-sep">|</span>
     <a class="ig-link" href="https://www.instagram.com/myearthquake1/" target="_blank" rel="noopener">&#9654; @myearthquake1</a>
     <span class="tb-sep">|</span>
@@ -946,75 +947,68 @@ fetchSeismogram();
 setInterval(fetchSeismogram, 5000);
 
 // ── SEISCOMP LIVE MONITOR ──────────────────────────────
+// Permanent ngrok static URL — never changes between restarts
+const PERMANENT_DASHBOARD_URL = "https://acronym-iron-unsubtle.ngrok-free.dev";
+const PERMANENT_MAP_URL       = "https://acronym-iron-unsubtle.ngrok-free.dev/livemap";
+// Fallback: also try tunnel_url.json in case URL ever changes
 const TUNNEL_JSON = "https://raw.githubusercontent.com/Evanouou2020/myearthquakeeew/main/tunnel_url.json";
 
-let monitorUrl = null;
+let monitorUrl = PERMANENT_DASHBOARD_URL;
 
 async function fetchTunnelUrl() {
+  // Always return the permanent URL first — fast, no network round-trip
+  // If the permanent URL is ever changed (rare), tunnel_url.json will have the new one
   try {
-    // cache-bust so we always get the latest URL
     const res = await fetch(TUNNEL_JSON + "?_=" + Date.now(), { cache: "no-store" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    if (data && data.url && data.url.startsWith("http")) return data.url;
-  } catch (e) {
-    console.warn("tunnel_url.json fetch failed:", e);
-  }
-  return null;
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.url && data.url.startsWith("http")) return data.url;
+    }
+  } catch (e) { /* fallback below */ }
+  return PERMANENT_DASHBOARD_URL;
 }
 
-async function openMonitor() {
+function openMonitor(target) {
+  // target: 'dashboard' or 'map'
   const overlay  = document.getElementById("monitor-overlay");
   const frame    = document.getElementById("monitor-frame");
   const splash   = document.getElementById("monitor-splash");
   const status   = document.getElementById("monitor-status");
   const openBtn  = document.getElementById("monitor-open-btn");
+  const titleEl  = document.querySelector(".mt-title");
 
+  const url = (target === 'map') ? PERMANENT_MAP_URL : PERMANENT_DASHBOARD_URL;
+  monitorUrl = url;
+
+  titleEl.textContent = target === 'map' ? '🗺 Live Seismicity Map' : '▲ SeisComP Live Monitor';
   overlay.classList.add("open");
   status.textContent = "CONNECTING…";
   status.className   = "";
   frame.style.display = "none";
   splash.style.display = "flex";
-  document.getElementById("ms-msg").textContent = "Loading SeisComP dashboard…";
-  document.getElementById("ms-sub").textContent = "Fetching tunnel URL";
+  document.getElementById("ms-msg").textContent = target === 'map' ? "Loading live seismicity map…" : "Loading SeisComP dashboard…";
+  document.getElementById("ms-sub").textContent = url;
 
-  const url = await fetchTunnelUrl();
-  if (!url) {
-    status.textContent = "OFFLINE";
-    status.className   = "err";
-    document.getElementById("ms-msg").textContent = "Dashboard unavailable";
-    document.getElementById("ms-sub").textContent = "Tunnel may be restarting — try again in a minute";
-    openBtn.style.display = "none";
-    return;
-  }
-
-  monitorUrl = url;
   openBtn.style.display = "";
-  openBtn.onclick = () => window.open(monitorUrl, "_blank");
+  openBtn.onclick = () => window.open(url, "_blank");
 
-  // Test if the URL is reachable by loading it in the iframe
   frame.src = url;
+  // Cross-origin iframes don't fire onload reliably — use a timeout
+  let loaded = false;
   frame.onload = () => {
+    if (loaded) return; loaded = true;
     status.textContent = "LIVE";
     status.className   = "ok";
     frame.style.display = "block";
     splash.style.display = "none";
   };
-  frame.onerror = () => {
-    status.textContent = "LOAD ERROR";
-    status.className   = "err";
-    document.getElementById("ms-msg").textContent = "Could not load dashboard";
-    document.getElementById("ms-sub").textContent = url;
-  };
-  // Show frame after brief delay even if onload doesn't fire (cross-origin)
   setTimeout(() => {
-    if (status.textContent === "CONNECTING…" || status.textContent === "LIVE") {
-      status.textContent = "LIVE";
-      status.className   = "ok";
-      frame.style.display = "block";
-      splash.style.display = "none";
-    }
-  }, 3000);
+    if (loaded) return; loaded = true;
+    status.textContent = "LIVE";
+    status.className   = "ok";
+    frame.style.display = "block";
+    splash.style.display = "none";
+  }, 3500);
 }
 
 function closeMonitor() {
@@ -1023,6 +1017,26 @@ function closeMonitor() {
   overlay.classList.remove("open");
   frame.src = "about:blank";
 }
+
+// Pre-warm: ping dashboard to check it's up, update connection dot
+async function checkDashboardHealth() {
+  const dot = document.getElementById("conn-dot");
+  if (!dot) return;
+  try {
+    // Use no-cors — we just need to know if the server responds
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 5000);
+    await fetch(PERMANENT_DASHBOARD_URL + "/api/stations", { mode: "no-cors", signal: ctrl.signal });
+    clearTimeout(tid);
+    dot.className = "connected";
+    dot.title = "SeisComP dashboard online";
+  } catch (e) {
+    dot.className = "error";
+    dot.title = "SeisComP dashboard may be offline";
+  }
+}
+checkDashboardHealth();
+setInterval(checkDashboardHealth, 30000);
 
 // Close on Escape key
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeMonitor(); });
