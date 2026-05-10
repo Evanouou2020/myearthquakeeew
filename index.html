@@ -947,28 +947,32 @@ fetchSeismogram();
 setInterval(fetchSeismogram, 5000);
 
 // ── SEISCOMP LIVE MONITOR ──────────────────────────────
-// Permanent ngrok static URL — never changes between restarts
-const PERMANENT_DASHBOARD_URL = "https://acronym-iron-unsubtle.ngrok-free.dev";
-const PERMANENT_MAP_URL       = "https://acronym-iron-unsubtle.ngrok-free.dev/livemap";
-// Fallback: also try tunnel_url.json in case URL ever changes
+// URL is fetched dynamically from tunnel_url.json (updated whenever tunnel restarts)
 const TUNNEL_JSON = "https://raw.githubusercontent.com/Evanouou2020/myearthquakeeew/main/tunnel_url.json";
 
-let monitorUrl = PERMANENT_DASHBOARD_URL;
+let _cachedDashUrl = null;
+let _cachedMapUrl  = null;
+let _urlFetchedAt  = 0;
 
 async function fetchTunnelUrl() {
-  // Always return the permanent URL first — fast, no network round-trip
-  // If the permanent URL is ever changed (rare), tunnel_url.json will have the new one
+  // Re-fetch at most once per 60s
+  const now = Date.now();
+  if (_cachedDashUrl && (now - _urlFetchedAt) < 60000) return { dash: _cachedDashUrl, map: _cachedMapUrl };
   try {
-    const res = await fetch(TUNNEL_JSON + "?_=" + Date.now(), { cache: "no-store" });
+    const res = await fetch(TUNNEL_JSON + "?_=" + now, { cache: "no-store" });
     if (res.ok) {
       const data = await res.json();
-      if (data && data.url && data.url.startsWith("http")) return data.url;
+      if (data && data.url && data.url.startsWith("http")) {
+        _cachedDashUrl = data.url;
+        _cachedMapUrl  = data.map_url || (data.url + "/livemap");
+        _urlFetchedAt  = now;
+      }
     }
-  } catch (e) { /* fallback below */ }
-  return PERMANENT_DASHBOARD_URL;
+  } catch (e) { /* keep cached value */ }
+  return { dash: _cachedDashUrl || "about:blank", map: _cachedMapUrl || "about:blank" };
 }
 
-function openMonitor(target) {
+async function openMonitor(target) {
   // target: 'dashboard' or 'map'
   const overlay  = document.getElementById("monitor-overlay");
   const frame    = document.getElementById("monitor-frame");
@@ -977,9 +981,6 @@ function openMonitor(target) {
   const openBtn  = document.getElementById("monitor-open-btn");
   const titleEl  = document.querySelector(".mt-title");
 
-  const url = (target === 'map') ? PERMANENT_MAP_URL : PERMANENT_DASHBOARD_URL;
-  monitorUrl = url;
-
   titleEl.textContent = target === 'map' ? '🗺 Live Seismicity Map' : '▲ SeisComP Live Monitor';
   overlay.classList.add("open");
   status.textContent = "CONNECTING…";
@@ -987,8 +988,12 @@ function openMonitor(target) {
   frame.style.display = "none";
   splash.style.display = "flex";
   document.getElementById("ms-msg").textContent = target === 'map' ? "Loading live seismicity map…" : "Loading SeisComP dashboard…";
-  document.getElementById("ms-sub").textContent = url;
+  document.getElementById("ms-sub").textContent = "Fetching current tunnel URL…";
 
+  const urls = await fetchTunnelUrl();
+  const url = (target === 'map') ? urls.map : urls.dash;
+
+  document.getElementById("ms-sub").textContent = url;
   openBtn.style.display = "";
   openBtn.onclick = () => window.open(url, "_blank");
 
@@ -1018,18 +1023,23 @@ function closeMonitor() {
   frame.src = "about:blank";
 }
 
-// Pre-warm: ping dashboard to check it's up, update connection dot
+// Pre-warm: fetch URL and ping dashboard to check it's up, update connection dot
 async function checkDashboardHealth() {
   const dot = document.getElementById("conn-dot");
   if (!dot) return;
+  const urls = await fetchTunnelUrl();
+  if (!urls.dash || urls.dash === "about:blank") {
+    dot.className = "error";
+    dot.title = "SeisComP dashboard URL unknown";
+    return;
+  }
   try {
-    // Use no-cors — we just need to know if the server responds
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 5000);
-    await fetch(PERMANENT_DASHBOARD_URL + "/api/stations", { mode: "no-cors", signal: ctrl.signal });
+    await fetch(urls.dash + "/api/stations", { mode: "no-cors", signal: ctrl.signal });
     clearTimeout(tid);
     dot.className = "connected";
-    dot.title = "SeisComP dashboard online";
+    dot.title = "SeisComP dashboard online (" + urls.dash + ")";
   } catch (e) {
     dot.className = "error";
     dot.title = "SeisComP dashboard may be offline";
