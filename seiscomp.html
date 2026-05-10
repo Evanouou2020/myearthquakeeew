@@ -962,10 +962,83 @@ if(_lml) _lml.href=BACKEND_URL+'/livemap';
 
 window._socket = io(BACKEND_URL, {
   transports: ['polling', 'websocket'],   // polling first — more reliable through tunnels
-  reconnectionDelay: 2000,
-  reconnectionDelayMax: 10000,
-  timeout: 10000,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  reconnectionAttempts: Infinity,
+  timeout: 20000,
+  forceNew: true,
 });
+
+// ── REST fallback polling — populates STA/LTA + events every 5s even without Socket.IO ──
+let _socketLive = false;
+window._socket.on('connect', () => { _socketLive = true; });
+window._socket.on('disconnect', () => { _socketLive = false; });
+
+function _restPoll() {
+  // Always refresh event list every 30s via REST
+  fetch(BACKEND_URL + '/api/event_list', {cache:'no-store'})
+    .then(r => r.ok ? r.json() : null).catch(()=>null)
+    .then(evs => {
+      if (!evs || !evs.length) return;
+      // Only update if socket isn't live (socket gives fresher data)
+      if (_socketLive) return;
+      const el = document.getElementById('el');
+      if (!el) return;
+      if (evs[0]&&evs[0].mag) document.getElementById('lbanner').textContent=`Latest  M${evs[0].mag}  ${(evs[0].origin_time||'').slice(11,19)} UTC`;
+      el.innerHTML = evs.map(ev=>{
+        const m=parseFloat(ev.mag)||0, mc=m>=4?'mh':m>=3?'mm':'ml';
+        return `<div class="evrow" data-evid="${ev.evid}" onclick="openEv('${ev.evid}')">
+          <div class="evtop"><span class="evmag ${mc}">M${ev.mag||'?'}</span><span class="evid">${ev.evid}</span></div>
+          <div class="evloc">${ev.lat}N  ${Math.abs(ev.lon)}W  ·  ${ev.depth} km</div>
+          <div class="evtime">${(ev.origin_time||'').slice(0,19)} UTC</div>
+          <div class="evph">${ev.phases} phases</div>
+        </div>`;
+      }).join('');
+    });
+
+  // Refresh STA/LTA table every 5s via REST when socket is down
+  if (!_socketLive) {
+    fetch(BACKEND_URL + '/api/stations', {cache:'no-store'})
+      .then(r => r.ok ? r.json() : null).catch(()=>null)
+      .then(rows => {
+        if (!rows) return;
+        const live = rows.filter(r => r.stalta > 0);
+        const now = new Date().toISOString().slice(11,19);
+        document.getElementById('utc').textContent = now + ' UTC';
+        document.getElementById('blive').textContent = `${live.length} / ${rows.length} live`;
+        document.getElementById('sst').textContent =
+          `REST mode · ${live.length}/${rows.length} live  ·  socket reconnecting…`;
+        const triggered = live.filter(r => r.stalta >= 2.5);
+        const bt = document.getElementById('btrig');
+        bt.style.display = triggered.length ? '' : 'none';
+        if (triggered.length) bt.textContent = `${triggered.length} triggered`;
+
+        const sorted = rows.filter(r=>r.stalta>0).sort((a,b)=>b.stalta-a.stalta);
+        const tb = document.getElementById('stb');
+        while(tb.children.length > sorted.length) tb.removeChild(tb.lastChild);
+        while(tb.children.length < sorted.length) tb.appendChild(document.createElement('tr'));
+        const TRIG=2.5, ALARM=5.0;
+        sorted.forEach((r,i) => {
+          const pct = Math.min((r.stalta/8)*100,100).toFixed(1);
+          const vc = r.stalta>=ALARM?'var(--red)':r.stalta>=TRIG?'var(--yel)':'var(--grn)';
+          const bc = r.stalta>=ALARM?'br':r.stalta>=TRIG?'by':'bg';
+          const st = r.stalta>=ALARM?'ALARM':r.stalta>=TRIG?'TRIGGER':r.updated?'quiet':'waiting';
+          const [net,sta,chan]=[r.net,r.sta,'---'];
+          tb.children[i].innerHTML=`
+            <td style="color:${r.color||'#aaa'};font-weight:600">${r.net}</td>
+            <td style="color:${r.color||'#aaa'}">${r.sta}</td>
+            <td style="color:var(--dim)">${chan}</td>
+            <td style="color:${vc};font-weight:${r.stalta>=TRIG?700:400}">${r.stalta.toFixed(2)}</td>
+            <td><div class="bw"><div class="bf ${bc}" style="width:${pct}%"></div></div></td>
+            <td style="color:${vc}">${st}</td>
+            <td style="color:var(--dim)">${r.updated||'—'}</td>
+            <td></td>`;
+        });
+      });
+  }
+}
+setInterval(_restPoll, 5000);
+_restPoll();  // run immediately on load
 
 // Show connection status in event catalog while connecting
 (function _pollEventsRest() {
