@@ -732,8 +732,15 @@ async function openEv(evid){
   document.getElementById('ms').textContent='Loading…';
   document.getElementById('mb').innerHTML='<div style="padding:20px;color:var(--dim)">Loading…</div>';
   document.getElementById('mo').classList.add('open');
-  const res=await fetch(`${BACKEND_URL}/api/event/${evid}`);
-  const ev=await res.json();
+  let ev;
+  try {
+    const res=await fetch(`${BACKEND_URL}/api/event/${evid}`);
+    ev=await res.json();
+  } catch(e) {
+    document.getElementById('ms').textContent='Error loading event';
+    document.getElementById('mb').innerHTML=`<div style="color:var(--red);padding:20px">Failed to load event data.<br><small style="color:var(--mut)">${e.message}</small></div>`;
+    return;
+  }
   if(ev.error){document.getElementById('mb').innerHTML=`<div style="color:var(--red)">${ev.error}</div>`;return;}
   const mags=ev.magnitudes||[],picks=ev.picks||[],cities=ev.cities||[];
   const lat=parseFloat(ev.lat||0),lon=parseFloat(ev.lon||0);
