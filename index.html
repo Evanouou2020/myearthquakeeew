@@ -314,6 +314,84 @@
       #clock-block { display: none; }
       .about-body { grid-template-columns: 1fr; }
     }
+
+    /* ── SEISCOMP MONITOR OVERLAY ── */
+    #monitor-btn {
+      background: none;
+      border: 1px solid var(--accent-dim);
+      border-radius: 2px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 0.63rem;
+      padding: 3px 10px;
+      cursor: pointer;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      transition: border-color 0.2s, background 0.2s;
+      white-space: nowrap;
+    }
+    #monitor-btn:hover { border-color: var(--accent); background: rgba(0,180,255,0.08); }
+
+    #monitor-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #050709;
+      flex-direction: column;
+    }
+    #monitor-overlay.open { display: flex; }
+
+    #monitor-topbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 16px;
+      height: 38px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border-bright);
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+    #monitor-topbar .mt-title { color: var(--accent); font-weight: bold; letter-spacing: 0.1em; text-transform: uppercase; }
+    #monitor-status { font-size: 0.62rem; }
+    #monitor-status.ok  { color: var(--green); }
+    #monitor-status.err { color: var(--red); }
+    #monitor-open-btn {
+      background: none; border: 1px solid var(--border-bright); border-radius: 2px;
+      color: var(--text-dim); font-family: var(--mono); font-size: 0.6rem;
+      padding: 2px 9px; cursor: pointer; letter-spacing: 0.05em;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    #monitor-open-btn:hover { border-color: var(--accent); color: var(--accent); }
+    #monitor-close-btn {
+      margin-left: auto;
+      background: none; border: 1px solid var(--border-bright); border-radius: 2px;
+      color: var(--text-dim); font-family: var(--mono); font-size: 0.6rem;
+      padding: 2px 9px; cursor: pointer; letter-spacing: 0.05em;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    #monitor-close-btn:hover { border-color: var(--red); color: var(--red); }
+
+    #monitor-frame {
+      flex: 1;
+      border: none;
+      background: #020304;
+    }
+    #monitor-splash {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      gap: 12px;
+    }
+    #monitor-splash .ms-icon { font-size: 2rem; color: var(--accent); }
+    #monitor-splash .ms-msg  { letter-spacing: 0.05em; }
+    #monitor-splash .ms-sub  { font-size: 0.63rem; color: #334455; }
   </style>
 </head>
 <body>
@@ -325,6 +403,8 @@
   <span class="tb-sep">|</span>
   <span>REGION: SAN RAMON, CA</span>
   <div class="tb-right">
+    <button id="monitor-btn" onclick="openMonitor()">▲ SeisComP Live</button>
+    <span class="tb-sep">|</span>
     <a class="ig-link" href="https://www.instagram.com/myearthquake1/" target="_blank" rel="noopener">&#9654; @myearthquake1</a>
     <span class="tb-sep">|</span>
     <a class="contact-btn" href="mailto:alt90228@gmail.com">Questions? Email us</a>
@@ -864,6 +944,108 @@ async function fetchSeismogram() {
 
 fetchSeismogram();
 setInterval(fetchSeismogram, 5000);
+
+// ── SEISCOMP LIVE MONITOR ──────────────────────────────
+const TUNNEL_JSON = "https://raw.githubusercontent.com/Evanouou2020/myearthquakeeew/main/tunnel_url.json";
+
+let monitorUrl = null;
+
+async function fetchTunnelUrl() {
+  try {
+    // cache-bust so we always get the latest URL
+    const res = await fetch(TUNNEL_JSON + "?_=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (data && data.url && data.url.startsWith("http")) return data.url;
+  } catch (e) {
+    console.warn("tunnel_url.json fetch failed:", e);
+  }
+  return null;
+}
+
+async function openMonitor() {
+  const overlay  = document.getElementById("monitor-overlay");
+  const frame    = document.getElementById("monitor-frame");
+  const splash   = document.getElementById("monitor-splash");
+  const status   = document.getElementById("monitor-status");
+  const openBtn  = document.getElementById("monitor-open-btn");
+
+  overlay.classList.add("open");
+  status.textContent = "CONNECTING…";
+  status.className   = "";
+  frame.style.display = "none";
+  splash.style.display = "flex";
+  document.getElementById("ms-msg").textContent = "Loading SeisComP dashboard…";
+  document.getElementById("ms-sub").textContent = "Fetching tunnel URL";
+
+  const url = await fetchTunnelUrl();
+  if (!url) {
+    status.textContent = "OFFLINE";
+    status.className   = "err";
+    document.getElementById("ms-msg").textContent = "Dashboard unavailable";
+    document.getElementById("ms-sub").textContent = "Tunnel may be restarting — try again in a minute";
+    openBtn.style.display = "none";
+    return;
+  }
+
+  monitorUrl = url;
+  openBtn.style.display = "";
+  openBtn.onclick = () => window.open(monitorUrl, "_blank");
+
+  // Test if the URL is reachable by loading it in the iframe
+  frame.src = url;
+  frame.onload = () => {
+    status.textContent = "LIVE";
+    status.className   = "ok";
+    frame.style.display = "block";
+    splash.style.display = "none";
+  };
+  frame.onerror = () => {
+    status.textContent = "LOAD ERROR";
+    status.className   = "err";
+    document.getElementById("ms-msg").textContent = "Could not load dashboard";
+    document.getElementById("ms-sub").textContent = url;
+  };
+  // Show frame after brief delay even if onload doesn't fire (cross-origin)
+  setTimeout(() => {
+    if (status.textContent === "CONNECTING…" || status.textContent === "LIVE") {
+      status.textContent = "LIVE";
+      status.className   = "ok";
+      frame.style.display = "block";
+      splash.style.display = "none";
+    }
+  }, 3000);
+}
+
+function closeMonitor() {
+  const overlay = document.getElementById("monitor-overlay");
+  const frame   = document.getElementById("monitor-frame");
+  overlay.classList.remove("open");
+  frame.src = "about:blank";
+}
+
+// Close on Escape key
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeMonitor(); });
 </script>
+
+<!-- SEISCOMP LIVE MONITOR OVERLAY -->
+<div id="monitor-overlay">
+  <div id="monitor-topbar">
+    <span class="mt-title">▲ SeisComP Live Monitor</span>
+    <span class="tb-sep">|</span>
+    <span id="monitor-status">CONNECTING…</span>
+    <span class="tb-sep">|</span>
+    <span style="color:var(--text-dim);font-size:0.6rem">Local seismic network — real-time STA/LTA &amp; waveforms</span>
+    <button id="monitor-open-btn" style="display:none" onclick="window.open(monitorUrl,'_blank')">Open in new tab ↗</button>
+    <button id="monitor-close-btn" onclick="closeMonitor()">✕ Close</button>
+  </div>
+  <iframe id="monitor-frame" style="display:none" allowfullscreen></iframe>
+  <div id="monitor-splash">
+    <div class="ms-icon">▲</div>
+    <div class="ms-msg" id="ms-msg">Loading SeisComP dashboard…</div>
+    <div class="ms-sub" id="ms-sub">Fetching tunnel URL</div>
+  </div>
+</div>
+
 </body>
 </html>
