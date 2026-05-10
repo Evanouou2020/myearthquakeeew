@@ -282,32 +282,40 @@ canvas.scrttv-cv{flex:1;height:52px;background:#060a10;display:block;cursor:cros
   </div>
 </div>
 <script>
-(async()=>{ await initBackend();
-// Set livemap link now that BACKEND_URL is known
-const _lml=document.getElementById('livemap-link');
-if(_lml) _lml.href=BACKEND_URL+'/livemap';
-const socket=io(BACKEND_URL, {transports:['websocket','polling']});
+// ── Global state variables ─────────────────────────────────────────────────────
 const ALARM=4,TRIG=1.8;
 let wfMode='top';
 let wfFilter='raw';
-let _lastWfData=[];  // cache last received waveform data for re-render on filter change
+let wfZoom=60;
+const LONG_THRESHOLD=600;
+let _lastWfData=[];
+const cvs={};
+const wfStore={};
+const wfLongStore={};
+let _seisMap=null,_seisMarkers=[];
+let _mtEvents=[];
+let _staltaRows=[];
+let _drawerOpen=false,_activeTab='map';
+let selEvid=null;
+let _alertTimer=null;
+let _evMap=null,_evMapEvid=null;
+const scrtvCvs={};
+const SCRTTV_WIN=600;
 
+// ── Filter functions ───────────────────────────────────────────────────────────
 function setFilter(f){
   wfFilter=f;
   ['raw','hp1','bp1','bp2','lp'].forEach(k=>{
     document.getElementById('filt-'+k).classList.toggle('act',k===f);
   });
-  // Re-draw current data with new filter
   if(_lastWfData.length) renderWaveforms(_lastWfData);
 }
 
 function applyFilter(data, filterType){
   if(!data||data.length<5||filterType==='raw') return data;
-  // Simple IIR filter implementations (normalized 0-1 data, ~1sps downsampled)
   const n=data.length;
   const out=new Array(n);
   if(filterType==='hp1'){
-    // High-pass > 1 Hz: DC-blocking IIR (first-order highpass, α=0.95)
     const alpha=0.95;
     let prev=data[0], prevOut=0;
     for(let i=0;i<n;i++){
@@ -315,30 +323,25 @@ function applyFilter(data, filterType){
       prev=data[i]; prevOut=out[i];
     }
   } else if(filterType==='bp1'||filterType==='bp2'){
-    // Bandpass: apply highpass then lowpass
     const hp_a = filterType==='bp1' ? 0.92 : 0.85;
     const lp_b = filterType==='bp1' ? 0.4  : 0.6;
-    // High-pass pass first
     const tmp=new Array(n);
     let prev=data[0], prevOut=0;
     for(let i=0;i<n;i++){
       tmp[i]=hp_a*(prevOut + data[i] - prev);
       prev=data[i]; prevOut=tmp[i];
     }
-    // Then low-pass
     out[0]=tmp[0];
     for(let i=1;i<n;i++){
       out[i]=out[i-1]+lp_b*(tmp[i]-out[i-1]);
     }
   } else if(filterType==='lp'){
-    // Low-pass < 1 Hz: heavy smoothing IIR
     const b=0.05;
     out[0]=data[0];
     for(let i=1;i<n;i++) out[i]=out[i-1]+b*(data[i]-out[i-1]);
   } else {
     return data;
   }
-  // Re-normalize
   const mx=Math.max(...out.map(Math.abs));
   if(mx>0) for(let i=0;i<n;i++) out[i]/=mx;
   return out;
@@ -366,15 +369,8 @@ function renderWaveforms(traces){
       drawW(cvs[t.label],applyFilter(t.data,wfFilter),t.color,t.t_end,t.secs||600);
   });
 }
-const cvs={};
 
 // ── Bottom tab panel ───────────────────────────────────────────────────────────
-let _seisMap=null,_seisMarkers=[];
-let _mtEvents=[];
-let _staltaRows=[];
-
-let _drawerOpen=false,_activeTab='map';
-
 function toggleDrawer(forceOpen){
   const bp=document.getElementById('bp');
   _drawerOpen = forceOpen===true ? true : !_drawerOpen;
@@ -389,7 +385,6 @@ function toggleDrawer(forceOpen){
 }
 
 function setTab(name){
-  // If clicking the already-active tab while open → collapse
   if(name===_activeTab && _drawerOpen){toggleDrawer();return;}
   _activeTab=name;
   ['map','mtime','health','prelim'].forEach(n=>{
@@ -453,7 +448,6 @@ function drawMTime(){
   if(!w||!h)return;
   const ctx=cv.getContext('2d');
   ctx.fillStyle='#0a0f15';ctx.fillRect(0,0,w,h);
-  // Grid
   ctx.strokeStyle='#1c2333';ctx.lineWidth=0.5;
   [1,2,3,4,5].forEach(m=>{
     const y=h-(m/6)*h;
@@ -477,7 +471,6 @@ function drawMTime(){
     ctx.strokeStyle='#fff';ctx.lineWidth=0.5;ctx.globalAlpha=0.4;ctx.stroke();
     ctx.globalAlpha=1;
   });
-  // Time axis
   const ax=document.getElementById('mt-axis');
   ax.innerHTML='';
   ['-48h','-36h','-24h','-12h','now'].forEach(l=>{
@@ -493,12 +486,11 @@ function drawHealth(){
     const updated=r.updated;
     let age=Infinity,cls='dead',hs='no data';
     if(updated){
-      // parse "HH:MM:SS UTC" as today's UTC time
       const parts=updated.replace(' UTC','').split(':');
       const d=new Date();
       d.setUTCHours(+parts[0],+parts[1],+parts[2],0);
       age=(now-d.getTime())/1000;
-      if(age>86400)age=now/1000%86400; // handle day rollover approximation
+      if(age>86400)age=now/1000%86400;
       cls=age<60?'live':age<300?'slow':'dead';
       hs=age<60?`${Math.round(age)}s ago`:`${Math.round(age/60)}m ago`;
     }
@@ -510,27 +502,6 @@ function drawHealth(){
     </div>`;
   }).join('');
 }
-
-// Receive events and feed all panels
-socket.on('events',msg=>{
-  _mtEvents=msg.events||[];
-  updateSeisMap(_mtEvents);
-  if(document.getElementById('panel-mtime').classList.contains('act'))drawMTime();
-});
-
-// Feed health panel from stalta data
-const _origStalta=socket.listeners?socket.listeners('stalta'):[];
-socket.on('stalta',msg=>{_staltaRows=msg.rows||[];
-  if(document.getElementById('panel-health').classList.contains('act'))drawHealth();
-});
-
-window.addEventListener('resize',()=>{
-  if(document.getElementById('panel-mtime').classList.contains('act'))drawMTime();
-  if(_seisMap)_seisMap.invalidateSize();
-});
-
-// Init map after first render
-setTimeout(()=>{initSeisMap();},500);
 
 // ── scvoice toggle ─────────────────────────────────────────────────────────────
 function _setVoiceBtn(running){
@@ -549,14 +520,8 @@ async function toggleVoice(){
   const d=await r.json();
   _setVoiceBtn(d.running);
 }
-fetch(BACKEND_URL+'/api/scvoice').then(r=>r.json()).then(d=>_setVoiceBtn(d.running));
 
-// ── Waveform zoom state ────────────────────────────────────────────────────────
-let wfZoom=60;        // seconds to display (client-side zoom)
-const wfStore={};     // label -> {data, t_end, secs, color}  — short (≤10min)
-const wfLongStore={}; // label -> {data, t_end, secs, color}  — long  (≤2hr)
-const LONG_THRESHOLD=600; // seconds above which we switch to the long buffer
-
+// ── Waveform mode and zoom ─────────────────────────────────────────────────────
 function setMode(m){
   wfMode=m;
   document.getElementById('btn-top').classList.toggle('act',m==='top');
@@ -577,14 +542,11 @@ function setZoom(s){
     const b=document.getElementById('zoom-'+v);
     if(b)b.classList.toggle('act',v===s);
   });
-  // Pick the right store: short buffer for ≤10min, long buffer for >10min
   const store=s>LONG_THRESHOLD?wfLongStore:wfStore;
-  // Redraw all currently-visible waveforms
   Object.entries(store).forEach(([lbl,d])=>{
     const cv=cvs[lbl];
     if(cv)drawW(cv,applyFilter(d.data,wfFilter),d.color,d.t_end,d.secs);
   });
-  // If switching to long range and long data not arrived yet, show placeholder
   if(s>LONG_THRESHOLD){
     Object.keys(wfStore).forEach(lbl=>{
       if(!wfLongStore[lbl]){
@@ -612,18 +574,15 @@ function drawW(canvas,data,color,t_end,totalSecs){
   const AXIS_H=14;
   const sigH=h-AXIS_H;
 
-  // Background
   ctx.fillStyle='#06090f';ctx.fillRect(0,0,w,h);
   ctx.fillStyle='#0a0d14';ctx.fillRect(0,sigH,w,AXIS_H);
 
-  // Clip zoom window
   const tSecs=totalSecs||300;
   const zSecs=Math.min(wfZoom,tSecs);
   const startFrac=1-zSecs/tSecs;
   const startIdx=data?Math.max(0,Math.floor(data.length*startFrac)):0;
   const displayData=data?data.slice(startIdx):[];
 
-  // Amplitude grid lines (at ±0.5 and ±1.0 normalized)
   ctx.strokeStyle='#111827';ctx.lineWidth=0.5;
   [0.25,0.5,0.75].forEach(f=>{
     const yp=sigH/2 - f*(sigH/2 - 2);
@@ -631,7 +590,6 @@ function drawW(canvas,data,color,t_end,totalSecs){
     ctx.beginPath();ctx.moveTo(0,yp);ctx.lineTo(w,yp);ctx.stroke();
     ctx.beginPath();ctx.moveTo(0,yn);ctx.lineTo(w,yn);ctx.stroke();
   });
-  // Centre line
   ctx.strokeStyle='#1c2a3a';ctx.lineWidth=0.8;
   ctx.beginPath();ctx.moveTo(0,sigH/2);ctx.lineTo(w,sigH/2);ctx.stroke();
 
@@ -640,13 +598,10 @@ function drawW(canvas,data,color,t_end,totalSecs){
     const pts=displayData;
     const n=pts.length;
 
-    // Check for saturation (clipped signal)
     const maxAbs=Math.max(...pts.map(Math.abs));
     const saturated=maxAbs>=0.98;
 
-    // Envelope fill (min/max per pixel column for visual width)
     if(n>w*1.5){
-      // downsample: compute min/max per pixel
       const envTop=new Float32Array(w);
       const envBot=new Float32Array(w);
       envTop.fill(-2);envBot.fill(2);
@@ -668,7 +623,6 @@ function drawW(canvas,data,color,t_end,totalSecs){
       ctx.closePath();ctx.fill();
     }
 
-    // Waveform line
     ctx.beginPath();ctx.strokeStyle=saturated?'#ff6060':color;ctx.lineWidth=1.2;
     for(let i=0;i<n;i++){
       const x=(i/(n-1))*w;
@@ -677,7 +631,6 @@ function drawW(canvas,data,color,t_end,totalSecs){
     }
     ctx.stroke();
 
-    // Saturation label
     if(saturated){
       ctx.fillStyle='#ff606088';ctx.font='bold 8px monospace';
       ctx.fillText('SAT',4,11);
@@ -689,7 +642,6 @@ function drawW(canvas,data,color,t_end,totalSecs){
     ctx.textAlign='left';
   }
 
-  // UTC time axis
   if(t_end){
     const tStart=t_end-zSecs;
     ctx.strokeStyle='#1c2333';ctx.lineWidth=0.5;
@@ -719,92 +671,7 @@ function drawW(canvas,data,color,t_end,totalSecs){
   }
 }
 
-// ── Waveform data receive ─────────────────────────────────────────────────────
-socket.on('waveforms',msg=>{
-  if(wfMode!=='top')return;
-  _lastWfData=msg.traces||[];
-  // Cache short buffer for zoom redraws
-  _lastWfData.forEach(t=>{
-    wfStore[t.label]={data:t.data,color:t.color,t_end:t.t_end,secs:t.secs||600};
-  });
-  renderWaveforms(_lastWfData);
-});
-
-socket.on('waveforms_long',msg=>{
-  if(wfMode!=='top')return;
-  msg.traces.forEach(t=>{
-    wfLongStore[t.label]={data:t.data,color:t.color,t_end:t.t_end,secs:t.secs||7200};
-    // If we're currently in a long zoom, update the canvas now
-    if(wfZoom>LONG_THRESHOLD&&cvs[t.label])
-      drawW(cvs[t.label],applyFilter(t.data,wfFilter),t.color,t.t_end,t.secs||7200);
-  });
-});
-
-socket.on('waveforms_all',msg=>{
-  if(wfMode!=='all')return;
-  const g=document.getElementById('wfag');
-  msg.traces.forEach(t=>{
-    let box=g.querySelector(`[data-label="${t.label}"]`);
-    if(!box){
-      box=document.createElement('div');box.className='mt';box.dataset.label=t.label;
-      const lbl=document.createElement('div');lbl.className='ml2';lbl.style.color=t.color;lbl.textContent=t.label;
-      const cv=document.createElement('canvas');cv.height=36;
-      box.appendChild(lbl);box.appendChild(cv);g.appendChild(box);
-    }
-    box.style.opacity=t.live?1:.3;
-    if(t.data&&t.data.length)drawW(box.querySelector('canvas'),applyFilter(t.data,wfFilter),t.color,t.t_end,t.secs||60);
-  });
-});
-
-socket.on('stalta',msg=>{
-  document.getElementById('utc').textContent=msg.utc+' UTC';
-  document.getElementById('blive').textContent=`${msg.active} / ${msg.total} live`;
-  const bt=document.getElementById('btrig'),ba=document.getElementById('balrm');
-  bt.style.display=msg.triggered>0?'':'none';ba.style.display=msg.alarmed>0?'':'none';
-  if(msg.triggered>0)bt.textContent=`${msg.triggered} triggered`;
-  if(msg.alarmed>0)ba.textContent=`${msg.alarmed} alarmed`;
-  document.getElementById('sst').textContent=
-    `${msg.active}/${msg.total} stations live  ·  ${msg.triggered} triggered  ·  ${msg.alarmed} alarmed`;
-  const rows=msg.rows,tb=document.getElementById('stb');
-  while(tb.children.length>rows.length)tb.removeChild(tb.lastChild);
-  while(tb.children.length<rows.length)tb.appendChild(document.createElement('tr'));
-  rows.forEach((r,i)=>{
-    const tr=tb.children[i];
-    const pct=Math.min((r.stalta/8)*100,100).toFixed(1);
-    const bc=r.stalta>=ALARM?'br':r.stalta>=TRIG?'by':'bg';
-    const vc=r.stalta>=ALARM?'var(--red)':r.stalta>=TRIG?'var(--yel)':'var(--grn)';
-    const st=r.stalta>=ALARM?'ALARM':r.stalta>=TRIG?'TRIGGER':r.updated?'quiet':'waiting';
-    const [net,sta,chan]=r.key.split('.');
-    tr.innerHTML=`
-      <td style="color:${r.color};font-weight:600">${r.net}</td>
-      <td style="color:${r.color}">${r.sta}</td>
-      <td style="color:var(--dim)">${r.chan}</td>
-      <td style="color:${vc};font-weight:${r.stalta>=TRIG?700:400}">${r.stalta.toFixed(2)}</td>
-      <td><div class="bw"><div class="bf ${bc}" style="width:${pct}%"></div></div></td>
-      <td style="color:${vc}">${st}</td>
-      <td style="color:var(--dim)">${r.updated?r.updated+' UTC':'—'}</td>
-      <td><button class="obtn" onclick="window.open(BACKEND_URL+'/station/${net}/${sta}/${chan}','_blank')">waveform</button></td>`;
-  });
-});
-
-let selEvid=null;
-socket.on('events',msg=>{
-  const evs=msg.events,el=document.getElementById('el');
-  if(!evs.length){el.innerHTML='<div style="padding:10px;color:var(--dim)">No events</div>';return;}
-  const lat=evs[0];
-  if(lat.mag)document.getElementById('lbanner').textContent=`Latest  M${lat.mag}  ${(lat.origin_time||'').slice(11,19)} UTC`;
-  el.innerHTML=evs.map(ev=>{
-    const m=parseFloat(ev.mag)||0,mc=m>=4?'mh':m>=3?'mm':'ml',sel=ev.evid===selEvid?' sel':'';
-    return `<div class="evrow${sel}" data-evid="${ev.evid}" onclick="openEv('${ev.evid}')">
-      <div class="evtop"><span class="evmag ${mc}">M${ev.mag||'?'}</span><span class="evid">${ev.evid}</span></div>
-      <div class="evloc">${ev.lat}N  ${Math.abs(ev.lon)}W  ·  ${ev.depth} km</div>
-      <div class="evtime">${(ev.origin_time||'').slice(0,19)} UTC</div>
-      <div class="evph">${ev.phases} phases</div>
-    </div>`;
-  }).join('');
-});
-
-let _alertTimer=null;
+// ── Alert toast ────────────────────────────────────────────────────────────────
 function dismissAlert(){
   document.getElementById('alert-toast').classList.remove('show');
   if(_alertTimer){clearTimeout(_alertTimer);_alertTimer=null;}
@@ -822,14 +689,9 @@ function showAlertToast(ev){
   const t=document.getElementById('alert-toast');
   t.classList.add('show');
   if(_alertTimer){clearTimeout(_alertTimer);_alertTimer=null;}
-  // Toast stays until manually dismissed — click ✕ to close
 }
-socket.on('alert_event', ev => {
-  showAlertToast(ev);
-  openEv(ev.evid);
-});
 
-let _evMap=null,_evMapEvid=null;
+// ── Event modal ────────────────────────────────────────────────────────────────
 function _initMap(lat,lon,picks){
   const mapDiv=document.getElementById('ev-map');
   if(!mapDiv)return;
@@ -837,7 +699,6 @@ function _initMap(lat,lon,picks){
   _evMap=L.map('ev-map',{zoomControl:true,attributionControl:false}).setView([lat,lon],7);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     {maxZoom:18,opacity:0.85}).addTo(_evMap);
-  // Epicenter star
   const starIcon=L.divIcon({className:'',html:`<svg width="22" height="22" viewBox="-11 -11 22 22">
     <polygon points="0,-9 2.1,-2.9 8.6,-2.9 3.4,1.1 5.3,7.2 0,3.5 -5.3,7.2 -3.4,1.1 -8.6,-2.9 -2.1,-2.9"
       fill="#f85149" stroke="#fff" stroke-width="1"/>
@@ -845,7 +706,6 @@ function _initMap(lat,lon,picks){
   L.marker([lat,lon],{icon:starIcon,zIndexOffset:1000})
     .bindTooltip(`Epicenter<br>${lat.toFixed(3)}°N ${Math.abs(lon).toFixed(3)}°W`,{sticky:true})
     .addTo(_evMap);
-  // Station triangles
   const staSeen=new Set();
   picks.forEach(p=>{
     if(!p.sta_lat||!p.sta_lon)return;
@@ -860,7 +720,6 @@ function _initMap(lat,lon,picks){
       .bindTooltip(`${k}<br>${p.phase||'?'}  ${p.pick_time?p.pick_time.slice(11,23)+' UTC':''}`,{sticky:true})
       .addTo(_evMap);
   });
-  // Fit bounds to include all markers
   const pts=[[lat,lon],...picks.filter(p=>p.sta_lat).map(p=>[p.sta_lat,p.sta_lon])];
   if(pts.length>1)_evMap.fitBounds(L.latLngBounds(pts).pad(0.15));
   setTimeout(()=>_evMap.invalidateSize(),100);
@@ -896,7 +755,6 @@ async function openEv(evid){
     const d2=p.distance!=null?parseFloat(p.distance).toFixed(1)+'°':'—';
     const az=p.azimuth!=null?parseFloat(p.azimuth).toFixed(0)+'°':'—';
     const wt=p.weight!=null?parseFloat(p.weight).toFixed(2):'—';
-    // Full UTC timestamp for pick time
     const t=p.pick_time?p.pick_time.slice(0,23).replace('T',' ')+' UTC':'—';
     const yellow=p.residual!=null&&Math.abs(p.residual)>1.5?'color:var(--yel)':'';
     return `<tr><td style="color:var(--txt)">${p.net}.${p.sta}</td><td style="color:var(--dim)">${p.cha}</td>
@@ -933,7 +791,6 @@ async function openEv(evid){
     <tbody>${pickRows||'<tr><td colspan="8" style="color:var(--dim);padding:8px">No picks found</td></tr>'}</tbody></table>`;
   requestAnimationFrame(()=>_initMap(lat,lon,picks));
 
-  // Async-load peak STA/LTA per station
   fetch(`${BACKEND_URL}/api/event_stalta/${evid}`).then(r=>r.json()).then(rows=>{
     const wrap=document.getElementById('stalta-evt-wrap');
     const note=document.getElementById('stalta-evt-note');
@@ -968,18 +825,17 @@ async function openEv(evid){
     if(note)note.textContent='(error loading)';
   });
 }
+
 function closeM(e){
   if(!e||e.target===document.getElementById('mo')){
     document.getElementById('mo').classList.remove('open');
     if(_evMap){_evMap.remove();_evMap=null;}
   }
 }
+
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeM();});
 
 // ── scrttv-style helicorder view ─────────────────────────────────────────────
-const scrtvCvs = {};
-const SCRTTV_WIN = 600; // 10-minute window like scrttv default
-
 function drawScrttvAll() {
   const wrap = document.getElementById('scrttv-wrap');
   if (!wrap || wfMode !== 'scrttv') return;
@@ -987,7 +843,6 @@ function drawScrttvAll() {
   const labels = Object.keys(store);
   if (!labels.length) { wrap.innerHTML = '<div style="padding:10px;color:var(--dim)">No data yet…</div>'; return; }
 
-  // Keep existing rows, add missing ones
   labels.forEach(lbl => {
     if (!wrap.querySelector(`[data-scrttv="${lbl}"]`)) {
       const d = store[lbl];
@@ -1010,14 +865,12 @@ function drawScrttvAll() {
     }
   });
 
-  // Draw each
   labels.forEach(lbl => {
     const d = store[lbl];
     if (!d || !d.data) return;
     const cv = scrtvCvs[lbl];
     if (!cv) return;
     drawScrttvTrace(cv, d.data, d.color, d.t_end, d.secs, d.stalta || 0);
-    // Update STA/LTA label
     const sl = wrap.querySelector(`[data-sl="${lbl}"]`);
     if (sl) {
       const v = d.stalta || 0;
@@ -1034,14 +887,11 @@ function drawScrttvTrace(canvas, data, color, t_end, totalSecs, stalta) {
   canvas.width = w;
   const ctx = canvas.getContext('2d');
 
-  // Dark background
   ctx.fillStyle = '#060a10'; ctx.fillRect(0, 0, w, h);
 
-  // Amplitude fill color: red if alarmed, orange if triggered, normal otherwise
   const fillCol = stalta >= ALARM ? '#f8514922' : stalta >= TRIG ? '#ff950022' : color + '18';
   const lineCol = stalta >= ALARM ? '#f85149' : stalta >= TRIG ? '#ff9500' : color;
 
-  // Show last SCRTTV_WIN seconds from the buffer
   const zSecs = SCRTTV_WIN;
   const startFrac = 1 - zSecs / totalSecs;
   const startIdx = Math.max(0, Math.floor(data.length * startFrac));
@@ -1052,11 +902,9 @@ function drawScrttvTrace(canvas, data, color, t_end, totalSecs, stalta) {
   const mid = h / 2;
   const amp = mid - mg;
 
-  // Zero line
   ctx.strokeStyle = '#1c2a3a'; ctx.lineWidth = 0.5;
   ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
 
-  // Amplitude fill
   ctx.fillStyle = fillCol;
   ctx.beginPath();
   for (let i = 0; i < pts.length; i++) {
@@ -1067,7 +915,6 @@ function drawScrttvTrace(canvas, data, color, t_end, totalSecs, stalta) {
   }
   ctx.lineTo(w, mid); ctx.closePath(); ctx.fill();
 
-  // Waveform line
   ctx.beginPath(); ctx.strokeStyle = lineCol; ctx.lineWidth = 1;
   for (let i = 0; i < pts.length; i++) {
     const x = (i / (pts.length - 1)) * w;
@@ -1076,7 +923,6 @@ function drawScrttvTrace(canvas, data, color, t_end, totalSecs, stalta) {
   }
   ctx.stroke();
 
-  // UTC time ticks (at right edge: show current time; at left: -10min)
   if (t_end) {
     const tStart = t_end - zSecs;
     ctx.font = '8px monospace'; ctx.fillStyle = '#3d4f66';
@@ -1094,8 +940,120 @@ function drawScrttvTrace(canvas, data, color, t_end, totalSecs, stalta) {
   }
 }
 
+window.addEventListener('resize',()=>{
+  if(document.getElementById('panel-mtime').classList.contains('act'))drawMTime();
+  if(_seisMap)_seisMap.invalidateSize();
+});
+</script>
+<script>
+(async()=>{ await initBackend();
+// Set livemap link now that BACKEND_URL is known
+const _lml=document.getElementById('livemap-link');
+if(_lml) _lml.href=BACKEND_URL+'/livemap';
+
+window._socket = io(BACKEND_URL, {transports:['websocket','polling']});
+
+// Feed all panels from events
+window._socket.on('events',msg=>{
+  _mtEvents=msg.events||[];
+  updateSeisMap(_mtEvents);
+  if(document.getElementById('panel-mtime').classList.contains('act'))drawMTime();
+});
+
+// Feed health panel from stalta data
+const _origStalta=window._socket.listeners?window._socket.listeners('stalta'):[];
+window._socket.on('stalta',msg=>{_staltaRows=msg.rows||[];
+  if(document.getElementById('panel-health').classList.contains('act'))drawHealth();
+});
+
+window._socket.on('stalta',msg=>{
+  document.getElementById('utc').textContent=msg.utc+' UTC';
+  document.getElementById('blive').textContent=`${msg.active} / ${msg.total} live`;
+  const bt=document.getElementById('btrig'),ba=document.getElementById('balrm');
+  bt.style.display=msg.triggered>0?'':'none';ba.style.display=msg.alarmed>0?'':'none';
+  if(msg.triggered>0)bt.textContent=`${msg.triggered} triggered`;
+  if(msg.alarmed>0)ba.textContent=`${msg.alarmed} alarmed`;
+  document.getElementById('sst').textContent=
+    `${msg.active}/${msg.total} stations live  ·  ${msg.triggered} triggered  ·  ${msg.alarmed} alarmed`;
+  const rows=msg.rows,tb=document.getElementById('stb');
+  while(tb.children.length>rows.length)tb.removeChild(tb.lastChild);
+  while(tb.children.length<rows.length)tb.appendChild(document.createElement('tr'));
+  rows.forEach((r,i)=>{
+    const tr=tb.children[i];
+    const pct=Math.min((r.stalta/8)*100,100).toFixed(1);
+    const bc=r.stalta>=ALARM?'br':r.stalta>=TRIG?'by':'bg';
+    const vc=r.stalta>=ALARM?'var(--red)':r.stalta>=TRIG?'var(--yel)':'var(--grn)';
+    const st=r.stalta>=ALARM?'ALARM':r.stalta>=TRIG?'TRIGGER':r.updated?'quiet':'waiting';
+    const [net,sta,chan]=r.key.split('.');
+    tr.innerHTML=`
+      <td style="color:${r.color};font-weight:600">${r.net}</td>
+      <td style="color:${r.color}">${r.sta}</td>
+      <td style="color:var(--dim)">${r.chan}</td>
+      <td style="color:${vc};font-weight:${r.stalta>=TRIG?700:400}">${r.stalta.toFixed(2)}</td>
+      <td><div class="bw"><div class="bf ${bc}" style="width:${pct}%"></div></div></td>
+      <td style="color:${vc}">${st}</td>
+      <td style="color:var(--dim)">${r.updated?r.updated+' UTC':'—'}</td>
+      <td><button class="obtn" onclick="window.open(BACKEND_URL+'/station/${net}/${sta}/${chan}','_blank')">waveform</button></td>`;
+  });
+});
+
+window._socket.on('events',msg=>{
+  const evs=msg.events,el=document.getElementById('el');
+  if(!evs.length){el.innerHTML='<div style="padding:10px;color:var(--dim)">No events</div>';return;}
+  const lat=evs[0];
+  if(lat.mag)document.getElementById('lbanner').textContent=`Latest  M${lat.mag}  ${(lat.origin_time||'').slice(11,19)} UTC`;
+  el.innerHTML=evs.map(ev=>{
+    const m=parseFloat(ev.mag)||0,mc=m>=4?'mh':m>=3?'mm':'ml',sel=ev.evid===selEvid?' sel':'';
+    return `<div class="evrow${sel}" data-evid="${ev.evid}" onclick="openEv('${ev.evid}')">
+      <div class="evtop"><span class="evmag ${mc}">M${ev.mag||'?'}</span><span class="evid">${ev.evid}</span></div>
+      <div class="evloc">${ev.lat}N  ${Math.abs(ev.lon)}W  ·  ${ev.depth} km</div>
+      <div class="evtime">${(ev.origin_time||'').slice(0,19)} UTC</div>
+      <div class="evph">${ev.phases} phases</div>
+    </div>`;
+  }).join('');
+});
+
+window._socket.on('alert_event', ev => {
+  showAlertToast(ev);
+  openEv(ev.evid);
+});
+
+window._socket.on('waveforms',msg=>{
+  if(wfMode!=='top')return;
+  _lastWfData=msg.traces||[];
+  _lastWfData.forEach(t=>{
+    wfStore[t.label]={data:t.data,color:t.color,t_end:t.t_end,secs:t.secs||600};
+  });
+  renderWaveforms(_lastWfData);
+});
+
+window._socket.on('waveforms_long',msg=>{
+  if(wfMode!=='top')return;
+  msg.traces.forEach(t=>{
+    wfLongStore[t.label]={data:t.data,color:t.color,t_end:t.t_end,secs:t.secs||7200};
+    if(wfZoom>LONG_THRESHOLD&&cvs[t.label])
+      drawW(cvs[t.label],applyFilter(t.data,wfFilter),t.color,t.t_end,t.secs||7200);
+  });
+});
+
+window._socket.on('waveforms_all',msg=>{
+  if(wfMode!=='all')return;
+  const g=document.getElementById('wfag');
+  msg.traces.forEach(t=>{
+    let box=g.querySelector(`[data-label="${t.label}"]`);
+    if(!box){
+      box=document.createElement('div');box.className='mt';box.dataset.label=t.label;
+      const lbl=document.createElement('div');lbl.className='ml2';lbl.style.color=t.color;lbl.textContent=t.label;
+      const cv=document.createElement('canvas');cv.height=36;
+      box.appendChild(lbl);box.appendChild(cv);g.appendChild(box);
+    }
+    box.style.opacity=t.live?1:.3;
+    if(t.data&&t.data.length)drawW(box.querySelector('canvas'),applyFilter(t.data,wfFilter),t.color,t.t_end,t.secs||60);
+  });
+});
+
 // Hook waveforms event to also update scrttv
-socket.on('waveforms', msg => {
+window._socket.on('waveforms', msg => {
   if (wfMode !== 'scrttv') return;
   msg.traces.forEach(t => {
     wfStore[t.label] = { data: t.data, color: t.color, t_end: t.t_end, secs: t.secs, stalta: t.stalta };
@@ -1103,18 +1061,20 @@ socket.on('waveforms', msg => {
   drawScrttvAll();
 });
 
-// ── Expose functions to global scope for HTML onclick handlers ──────────────
-// All functions are defined inside this async IIFE so they must be explicitly
-// assigned to window to be accessible from onclick="..." attributes in HTML.
-window.dismissAlert  = dismissAlert;
-window.toggleVoice   = toggleVoice;
-window.setMode       = setMode;
-window.setZoom       = setZoom;
-window.setFilter     = setFilter;
-window.setTab        = setTab;
-window.toggleDrawer  = toggleDrawer;
-window.closeM        = closeM;
-window.openEv        = openEv;
-window.BACKEND_URL   = BACKEND_URL;
+fetch(BACKEND_URL+'/api/scvoice').then(r=>r.json()).then(d=>_setVoiceBtn(d.running));
+
+fetch(BACKEND_URL+'/api/preliminary').then(r=>r.json()).then(items=>{
+  const list=document.getElementById('prelim-list');
+  if(!list)return;
+  if(!items||!items.length){list.innerHTML='<div style="padding:10px;color:var(--dim)">No detections yet</div>';return;}
+  list.innerHTML=items.map(it=>`<div style="padding:4px 8px;border-bottom:1px solid var(--b2);font-size:11px">
+    <span style="color:var(--yel);font-weight:600">${it.time||''}  UTC</span>
+    &nbsp;·&nbsp;${it.stations||0} stations triggered
+    &nbsp;·&nbsp;<span style="color:var(--dim)">${it.note||''}</span>
+  </div>`).join('');
+}).catch(()=>{});
+
+// Init map after first render
+setTimeout(()=>{initSeisMap();},500);
 })();
 </script></body></html>
