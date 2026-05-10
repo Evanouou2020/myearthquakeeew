@@ -194,7 +194,7 @@ canvas.scrttv-cv{flex:1;height:52px;background:#060a10;display:block;cursor:cros
 <div id="top-row">
   <div id="ep">
     <div class="ptitle">Event Catalog</div>
-    <div id="el"><div style="padding:10px;color:var(--dim)">Loading…</div></div>
+    <div id="el"><div style="padding:10px;color:var(--dim)">Loading events…</div></div>
   </div>
   <div id="cp">
     <div id="wfs">
@@ -960,7 +960,63 @@ window.addEventListener('resize',()=>{
 const _lml=document.getElementById('livemap-link');
 if(_lml) _lml.href=BACKEND_URL+'/livemap';
 
-window._socket = io(BACKEND_URL, {transports:['websocket','polling']});
+window._socket = io(BACKEND_URL, {
+  transports: ['polling', 'websocket'],   // polling first — more reliable through tunnels
+  reconnectionDelay: 2000,
+  reconnectionDelayMax: 10000,
+  timeout: 10000,
+});
+
+// Show connection status in event catalog while connecting
+(function _pollEventsRest() {
+  // Immediately load events via REST so catalog populates even before socket connects
+  fetch(BACKEND_URL + '/api/event_list', {cache:'no-store'})
+    .then(r => r.ok ? r.json() : null)
+    .catch(() => null)
+    .then(evs => {
+      if (!evs || !evs.length) return;
+      const el = document.getElementById('el');
+      if (!el || !el.querySelector('[data-evid]')) {   // don't overwrite if socket already filled it
+        const selEvid = window._selEvid || null;
+        el.innerHTML = evs.map(ev => {
+          const m = parseFloat(ev.mag) || 0, mc = m>=4?'mh':m>=3?'mm':'ml';
+          return `<div class="evrow" data-evid="${ev.evid}" onclick="openEv('${ev.evid}')">
+            <div class="evtop"><span class="evmag ${mc}">M${ev.mag||'?'}</span><span class="evid">${ev.evid}</span></div>
+            <div class="evloc">${ev.lat}N  ${Math.abs(ev.lon)}W  ·  ${ev.depth} km</div>
+            <div class="evtime">${(ev.origin_time||'').slice(0,19)} UTC</div>
+            <div class="evph">${ev.phases} phases</div>
+          </div>`;
+        }).join('');
+      }
+    });
+})();
+
+// Socket.IO connection status feedback
+window._socket.on('connect', () => {
+  document.getElementById('sst').textContent = 'Connected — waiting for data…';
+  // Reload events from REST now that connection is up (faster than waiting 15s socket cycle)
+  fetch(BACKEND_URL + '/api/event_list', {cache:'no-store'}).then(r=>r.json()).then(evs=>{
+    if(evs&&evs.length) window._socket.emit('__refresh_events__'); // just a hint; REST fill below
+    const el=document.getElementById('el');
+    if(!evs||!evs.length){el.innerHTML='<div style="padding:10px;color:var(--dim)">No events</div>';return;}
+    if(evs[0].mag) document.getElementById('lbanner').textContent=`Latest  M${evs[0].mag}  ${(evs[0].origin_time||'').slice(11,19)} UTC`;
+    el.innerHTML=evs.map(ev=>{
+      const m=parseFloat(ev.mag)||0,mc=m>=4?'mh':m>=3?'mm':'ml';
+      return `<div class="evrow" data-evid="${ev.evid}" onclick="openEv('${ev.evid}')">
+        <div class="evtop"><span class="evmag ${mc}">M${ev.mag||'?'}</span><span class="evid">${ev.evid}</span></div>
+        <div class="evloc">${ev.lat}N  ${Math.abs(ev.lon)}W  ·  ${ev.depth} km</div>
+        <div class="evtime">${(ev.origin_time||'').slice(0,19)} UTC</div>
+        <div class="evph">${ev.phases} phases</div>
+      </div>`;
+    }).join('');
+  }).catch(()=>{});
+});
+window._socket.on('disconnect', () => {
+  document.getElementById('sst').textContent = 'Reconnecting…';
+});
+window._socket.on('connect_error', (err) => {
+  document.getElementById('sst').textContent = `Connecting… (${err.message||'retrying'})`;
+});
 
 // Feed all panels from events
 window._socket.on('events',msg=>{
