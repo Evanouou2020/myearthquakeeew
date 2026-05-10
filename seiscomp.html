@@ -1102,5 +1102,19 @@ socket.on('waveforms', msg => {
   });
   drawScrttvAll();
 });
+
+// ── Expose functions to global scope for HTML onclick handlers ──────────────
+// All functions are defined inside this async IIFE so they must be explicitly
+// assigned to window to be accessible from onclick="..." attributes in HTML.
+window.dismissAlert  = dismissAlert;
+window.toggleVoice   = toggleVoice;
+window.setMode       = setMode;
+window.setZoom       = setZoom;
+window.setFilter     = setFilter;
+window.setTab        = setTab;
+window.toggleDrawer  = toggleDrawer;
+window.closeM        = closeM;
+window.openEv        = openEv;
+window.BACKEND_URL   = BACKEND_URL;
 })();
 </script></body></html>
