@@ -1271,5 +1271,51 @@ setTimeout(()=>{initSeisMap();},500);
 // Expose prelim functions to global scope for onclick handlers
 window.clearPrelimList = clearPrelimList;
 window.addPrelimRow    = addPrelimRow;
+
+// ── Tab visibility recovery ────────────────────────────────────────────────
+// Browsers throttle background tabs — timers slow, heartbeats are missed,
+// the Socket.IO connection silently dies. When the user comes back to the
+// tab, force an immediate reconnect + REST refresh so data resumes instantly.
+let _lastVisibleAt = Date.now();
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    _lastVisibleAt = Date.now();
+    return;
+  }
+
+  // Tab is visible again
+  const awayMs = Date.now() - _lastVisibleAt;
+
+  // Always do a REST refresh so data is immediately current
+  _restPoll();
+
+  // If away for more than 30s the socket is almost certainly dead
+  if (awayMs > 30000) {
+    document.getElementById('sst').textContent = 'Reconnecting after tab sleep…';
+
+    // Disconnect and force a fresh connection
+    if (window._socket) {
+      window._socket.disconnect();
+      // Brief pause so the server can clean up the old session
+      setTimeout(() => {
+        window._socket.connect();
+      }, 500);
+    }
+
+    // Re-fetch preliminary detections in case we missed some
+    fetch(BACKEND_URL + '/api/preliminary', {cache:'no-store'})
+      .then(r => r.json())
+      .then(items => {
+        if (!items || !items.length) return;
+        // Merge new items without duplicates
+        items.forEach(it => {
+          if (!_prelimItems.some(x => x.ts === it.ts)) _prelimItems.push(it);
+        });
+        _prelimItems.sort((a, b) => b.ts - a.ts);
+        _renderPrelimList();
+      }).catch(() => {});
+  }
+});
 })();
 </script></body></html>
