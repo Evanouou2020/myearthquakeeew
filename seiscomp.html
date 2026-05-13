@@ -189,6 +189,10 @@ canvas.scrttv-cv{flex:1;height:52px;background:#060a10;display:block;cursor:cros
     voice …
   </button>
   <span id="utc" style="margin-left:8px">--:--:-- UTC</span>
+  <button id="tz-btn" onclick="toggleTZ()"
+    style="margin-left:6px;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;
+           cursor:pointer;border:1px solid var(--b1);background:var(--b2);color:var(--mut);
+           font-family:inherit;letter-spacing:.5px">UTC</button>
 </div>
 <div id="main">
 <div id="top-row">
@@ -284,6 +288,67 @@ canvas.scrttv-cv{flex:1;height:52px;background:#060a10;display:block;cursor:cros
   </div>
 </div>
 <script>
+// ── Timezone toggle (UTC ↔ Pacific Time) ──────────────────────────────────────
+let _tz = localStorage.getItem('tz') || 'UTC';   // 'UTC' or 'PT'
+
+function _fmtTime(utcStr) {
+  // utcStr: "2026-05-10 13:17:48" or "13:17:48" or ISO string
+  if (!utcStr) return '—';
+  if (_tz === 'UTC') return utcStr;
+  // Parse as UTC and convert to America/Los_Angeles (handles PST/PDT automatically)
+  try {
+    const s = utcStr.replace(' ', 'T');
+    const d = new Date((s.includes('T') ? s : '1970-01-01T' + s) + (s.includes('Z') ? '' : 'Z'));
+    if (isNaN(d)) return utcStr;
+    // Full datetime vs time-only
+    if (utcStr.length > 10) {
+      return d.toLocaleString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+      }).replace(',', '') + ' PT';
+    } else {
+      return d.toLocaleTimeString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+      }) + ' PT';
+    }
+  } catch(e) { return utcStr; }
+}
+
+function toggleTZ() {
+  _tz = _tz === 'UTC' ? 'PT' : 'UTC';
+  localStorage.setItem('tz', _tz);
+  const btn = document.getElementById('tz-btn');
+  if (btn) {
+    btn.textContent = _tz;
+    btn.style.color = _tz === 'PT' ? 'var(--yel)' : 'var(--mut)';
+    btn.style.borderColor = _tz === 'PT' ? 'var(--yel)' : 'var(--b1)';
+  }
+  // Re-render everything that shows times
+  _rerenderTimes();
+}
+
+function _rerenderTimes() {
+  // Re-render event catalog (uses selEvid + _evCache)
+  if (window._lastEvList) _renderEvList(window._lastEvList);
+  // Re-render STA/LTA table (uses _staltaRows)
+  if (_staltaRows.length) _renderStaltaTable(_staltaRows);
+}
+
+// Initialize button state on load
+(function _initTZBtn() {
+  const btn = document.getElementById('tz-btn');
+  if (!btn) return;
+  btn.textContent = _tz;
+  if (_tz === 'PT') {
+    btn.style.color = 'var(--yel)';
+    btn.style.borderColor = 'var(--yel)';
+  }
+})();
+
 // ── Global state variables ─────────────────────────────────────────────────────
 const ALARM=4,TRIG=1.8;
 let wfMode='top';
@@ -300,6 +365,58 @@ let _staltaRows=[];
 let _drawerOpen=false,_activeTab='map';
 let selEvid=null;
 let _alertTimer=null;
+let _lastEvList=[];   // cached for timezone re-render
+
+// ── Shared event-list renderer (uses _fmtTime for timezone support) ───────────
+function _renderEvList(evs) {
+  _lastEvList = evs;
+  const el = document.getElementById('el');
+  if (!el) return;
+  if (!evs || !evs.length) {
+    el.innerHTML = '<div style="padding:10px;color:var(--dim)">No events</div>';
+    return;
+  }
+  const latest = evs[0];
+  if (latest && latest.mag)
+    document.getElementById('lbanner').textContent =
+      `Latest  M${latest.mag}  ${_fmtTime((latest.origin_time||'').slice(0,19))}`;
+  el.innerHTML = evs.map(ev => {
+    const m = parseFloat(ev.mag)||0, mc = m>=4?'mh':m>=3?'mm':'ml';
+    const sel = ev.evid === selEvid ? ' sel' : '';
+    return `<div class="evrow${sel}" data-evid="${ev.evid}" onclick="openEv('${ev.evid}')">
+      <div class="evtop"><span class="evmag ${mc}">M${ev.mag||'?'}</span><span class="evid">${ev.evid}</span></div>
+      <div class="evloc">${ev.lat}N  ${Math.abs(ev.lon)}W  ·  ${ev.depth} km</div>
+      <div class="evtime">${_fmtTime((ev.origin_time||'').slice(0,19))}</div>
+      <div class="evph">${ev.phases} phases</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Shared STA/LTA table renderer ─────────────────────────────────────────────
+function _renderStaltaTable(rows) {
+  _staltaRows = rows;
+  const tb = document.getElementById('stb');
+  if (!tb) return;
+  while (tb.children.length > rows.length) tb.removeChild(tb.lastChild);
+  while (tb.children.length < rows.length) tb.appendChild(document.createElement('tr'));
+  rows.forEach((r, i) => {
+    const pct = Math.min((r.stalta/8)*100,100).toFixed(1);
+    const bc  = r.stalta>=ALARM?'br':r.stalta>=TRIG?'by':'bg';
+    const vc  = r.stalta>=ALARM?'var(--red)':r.stalta>=TRIG?'var(--yel)':'var(--grn)';
+    const st  = r.stalta>=ALARM?'ALARM':r.stalta>=TRIG?'TRIGGER':r.updated?'quiet':'waiting';
+    const [net,sta,chan] = r.key ? r.key.split('.') : [r.net, r.sta, r.chan||'—'];
+    const updFmt = r.updated ? _fmtTime(r.updated.replace(' UTC','')) : '—';
+    tb.children[i].innerHTML = `
+      <td style="color:${r.color};font-weight:600">${r.net}</td>
+      <td style="color:${r.color}">${r.sta}</td>
+      <td style="color:var(--dim)">${chan}</td>
+      <td style="color:${vc};font-weight:${r.stalta>=TRIG?700:400}">${r.stalta.toFixed(2)}</td>
+      <td><div class="bw"><div class="bf ${bc}" style="width:${pct}%"></div></div></td>
+      <td style="color:${vc}">${st}</td>
+      <td style="color:var(--dim)">${updFmt}</td>
+      <td><button class="obtn" onclick="window.open(BACKEND_URL+'/station/${net}/${sta}/${chan}','_blank')">waveform</button></td>`;
+  });
+}
 let _evMap=null,_evMapEvid=null;
 const scrtvCvs={};
 const SCRTTV_WIN=600;
@@ -687,7 +804,7 @@ function showAlertToast(ev){
   document.getElementById('at-loc').textContent=
     Math.abs(ev.lat).toFixed(3)+'°'+ns+'  '+Math.abs(ev.lon).toFixed(3)+'°'+ew+
     '  ·  '+ev.depth+' km depth  ·  '+ev.phases+' phases';
-  document.getElementById('at-time').textContent=(ev.origin_time||'').slice(0,19)+' UTC  |  '+ev.evid;
+  document.getElementById('at-time').textContent=_fmtTime((ev.origin_time||'').slice(0,19))+'  |  '+ev.evid;
   const t=document.getElementById('alert-toast');
   t.classList.add('show');
   if(_alertTimer){clearTimeout(_alertTimer);_alertTimer=null;}
@@ -752,7 +869,7 @@ async function openEv(evid){
   const dist=ev.min_dist?parseFloat(ev.min_dist).toFixed(1)+'°':'—';
   const mTag=mags.length?`M${mags[0].mag} ${mags[0].type}`:'—';
   document.getElementById('mt').textContent=`${evid}  —  ${mTag}`;
-  document.getElementById('ms').textContent=(ev.origin_time||'').slice(0,19).replace('T',' ')+' UTC';
+  document.getElementById('ms').textContent=_fmtTime((ev.origin_time||'').slice(0,19).replace('T',' '));
   const magBoxes=mags.map(m=>{
     const mc=m.mag>=4?'var(--red)':m.mag>=3?'var(--yel)':'var(--grn)';
     return `<div class="mb2"><div class="mv" style="color:${mc}">${m.mag}</div><div class="mty">${m.type} · ${m.stationCount||'?'} sta</div></div>`;
@@ -781,7 +898,7 @@ async function openEv(evid){
     ${cities.length?`<div class="city-row">${cityChips}</div>`:''}
     <div class="mbs">${magBoxes||'<div style="color:var(--dim)">No magnitude yet</div>'}</div>
     <div class="mgrid">
-      <div class="ib"><div class="lbl">Origin Time (UTC)</div><div class="val" style="font-size:12px">${(ev.origin_time||'—').slice(0,19).replace('T',' ')}</div></div>
+      <div class="ib"><div class="lbl">Origin Time</div><div class="val" style="font-size:12px">${_fmtTime((ev.origin_time||'—').slice(0,19).replace('T',' '))}</div></div>
       <div class="ib"><div class="lbl">Location</div><div class="val" style="font-size:12px">${lat.toFixed(3)}°N  ${Math.abs(lon).toFixed(3)}°W</div></div>
       <div class="ib"><div class="lbl">Depth</div><div class="val">${dep}<span class="un"> km</span></div></div>
       <div class="ib"><div class="lbl">Phases Used</div><div class="val">${ev.phases||'—'}<span class="un"> arrivals</span></div></div>
@@ -976,25 +1093,11 @@ window._socket.on('disconnect', () => { _socketLive = false; });
 
 function _restPoll() {
   // Always refresh event list every 30s via REST
-  fetch(BACKEND_URL + '/api/event_list', {cache:'no-store'})
-    .then(r => r.ok ? r.json() : null).catch(()=>null)
-    .then(evs => {
-      if (!evs || !evs.length) return;
-      // Only update if socket isn't live (socket gives fresher data)
-      if (_socketLive) return;
-      const el = document.getElementById('el');
-      if (!el) return;
-      if (evs[0]&&evs[0].mag) document.getElementById('lbanner').textContent=`Latest  M${evs[0].mag}  ${(evs[0].origin_time||'').slice(11,19)} UTC`;
-      el.innerHTML = evs.map(ev=>{
-        const m=parseFloat(ev.mag)||0, mc=m>=4?'mh':m>=3?'mm':'ml';
-        return `<div class="evrow" data-evid="${ev.evid}" onclick="openEv('${ev.evid}')">
-          <div class="evtop"><span class="evmag ${mc}">M${ev.mag||'?'}</span><span class="evid">${ev.evid}</span></div>
-          <div class="evloc">${ev.lat}N  ${Math.abs(ev.lon)}W  ·  ${ev.depth} km</div>
-          <div class="evtime">${(ev.origin_time||'').slice(0,19)} UTC</div>
-          <div class="evph">${ev.phases} phases</div>
-        </div>`;
-      }).join('');
-    });
+  if (!_socketLive) {
+    fetch(BACKEND_URL + '/api/event_list', {cache:'no-store'})
+      .then(r => r.ok ? r.json() : null).catch(()=>null)
+      .then(evs => { if (evs && !_socketLive) _renderEvList(evs); });
+  }
 
   // Refresh STA/LTA table every 5s via REST when socket is down
   if (!_socketLive) {
@@ -1003,8 +1106,10 @@ function _restPoll() {
       .then(rows => {
         if (!rows) return;
         const live = rows.filter(r => r.stalta > 0);
-        const now = new Date().toISOString().slice(11,19);
-        document.getElementById('utc').textContent = now + ' UTC';
+        const nowUTC = new Date().toISOString().slice(11,19);
+        document.getElementById('utc').textContent = _tz==='PT'
+          ? new Date().toLocaleTimeString('en-US',{timeZone:'America/Los_Angeles',hour12:false})+' PT'
+          : nowUTC + ' UTC';
         document.getElementById('blive').textContent = `${live.length} / ${rows.length} live`;
         document.getElementById('sst').textContent =
           `REST mode · ${live.length}/${rows.length} live  ·  socket reconnecting…`;
@@ -1012,77 +1117,24 @@ function _restPoll() {
         const bt = document.getElementById('btrig');
         bt.style.display = triggered.length ? '' : 'none';
         if (triggered.length) bt.textContent = `${triggered.length} triggered`;
-
         const sorted = rows.filter(r=>r.stalta>0).sort((a,b)=>b.stalta-a.stalta);
-        const tb = document.getElementById('stb');
-        while(tb.children.length > sorted.length) tb.removeChild(tb.lastChild);
-        while(tb.children.length < sorted.length) tb.appendChild(document.createElement('tr'));
-        const TRIG=2.5, ALARM=5.0;
-        sorted.forEach((r,i) => {
-          const pct = Math.min((r.stalta/8)*100,100).toFixed(1);
-          const vc = r.stalta>=ALARM?'var(--red)':r.stalta>=TRIG?'var(--yel)':'var(--grn)';
-          const bc = r.stalta>=ALARM?'br':r.stalta>=TRIG?'by':'bg';
-          const st = r.stalta>=ALARM?'ALARM':r.stalta>=TRIG?'TRIGGER':r.updated?'quiet':'waiting';
-          const [net,sta,chan]=[r.net,r.sta,'---'];
-          tb.children[i].innerHTML=`
-            <td style="color:${r.color||'#aaa'};font-weight:600">${r.net}</td>
-            <td style="color:${r.color||'#aaa'}">${r.sta}</td>
-            <td style="color:var(--dim)">${chan}</td>
-            <td style="color:${vc};font-weight:${r.stalta>=TRIG?700:400}">${r.stalta.toFixed(2)}</td>
-            <td><div class="bw"><div class="bf ${bc}" style="width:${pct}%"></div></div></td>
-            <td style="color:${vc}">${st}</td>
-            <td style="color:var(--dim)">${r.updated||'—'}</td>
-            <td></td>`;
-        });
+        _renderStaltaTable(sorted);
       });
   }
 }
 setInterval(_restPoll, 5000);
 _restPoll();  // run immediately on load
 
-// Show connection status in event catalog while connecting
-(function _pollEventsRest() {
-  // Immediately load events via REST so catalog populates even before socket connects
-  fetch(BACKEND_URL + '/api/event_list', {cache:'no-store'})
-    .then(r => r.ok ? r.json() : null)
-    .catch(() => null)
-    .then(evs => {
-      if (!evs || !evs.length) return;
-      const el = document.getElementById('el');
-      if (!el || !el.querySelector('[data-evid]')) {   // don't overwrite if socket already filled it
-        const selEvid = window._selEvid || null;
-        el.innerHTML = evs.map(ev => {
-          const m = parseFloat(ev.mag) || 0, mc = m>=4?'mh':m>=3?'mm':'ml';
-          return `<div class="evrow" data-evid="${ev.evid}" onclick="openEv('${ev.evid}')">
-            <div class="evtop"><span class="evmag ${mc}">M${ev.mag||'?'}</span><span class="evid">${ev.evid}</span></div>
-            <div class="evloc">${ev.lat}N  ${Math.abs(ev.lon)}W  ·  ${ev.depth} km</div>
-            <div class="evtime">${(ev.origin_time||'').slice(0,19)} UTC</div>
-            <div class="evph">${ev.phases} phases</div>
-          </div>`;
-        }).join('');
-      }
-    });
-})();
+// Immediately load events via REST so catalog populates before socket connects
+fetch(BACKEND_URL + '/api/event_list', {cache:'no-store'})
+  .then(r => r.ok ? r.json() : null).catch(()=>null)
+  .then(evs => { if (evs && evs.length) _renderEvList(evs); });
 
 // Socket.IO connection status feedback
 window._socket.on('connect', () => {
   document.getElementById('sst').textContent = 'Connected — waiting for data…';
-  // Reload events from REST now that connection is up (faster than waiting 15s socket cycle)
-  fetch(BACKEND_URL + '/api/event_list', {cache:'no-store'}).then(r=>r.json()).then(evs=>{
-    if(evs&&evs.length) window._socket.emit('__refresh_events__'); // just a hint; REST fill below
-    const el=document.getElementById('el');
-    if(!evs||!evs.length){el.innerHTML='<div style="padding:10px;color:var(--dim)">No events</div>';return;}
-    if(evs[0].mag) document.getElementById('lbanner').textContent=`Latest  M${evs[0].mag}  ${(evs[0].origin_time||'').slice(11,19)} UTC`;
-    el.innerHTML=evs.map(ev=>{
-      const m=parseFloat(ev.mag)||0,mc=m>=4?'mh':m>=3?'mm':'ml';
-      return `<div class="evrow" data-evid="${ev.evid}" onclick="openEv('${ev.evid}')">
-        <div class="evtop"><span class="evmag ${mc}">M${ev.mag||'?'}</span><span class="evid">${ev.evid}</span></div>
-        <div class="evloc">${ev.lat}N  ${Math.abs(ev.lon)}W  ·  ${ev.depth} km</div>
-        <div class="evtime">${(ev.origin_time||'').slice(0,19)} UTC</div>
-        <div class="evph">${ev.phases} phases</div>
-      </div>`;
-    }).join('');
-  }).catch(()=>{});
+  fetch(BACKEND_URL + '/api/event_list', {cache:'no-store'})
+    .then(r=>r.json()).then(evs=>{ if(evs&&evs.length) _renderEvList(evs); }).catch(()=>{});
 });
 window._socket.on('disconnect', () => {
   document.getElementById('sst').textContent = 'Reconnecting…';
@@ -1105,7 +1157,9 @@ window._socket.on('stalta',msg=>{_staltaRows=msg.rows||[];
 });
 
 window._socket.on('stalta',msg=>{
-  document.getElementById('utc').textContent=msg.utc+' UTC';
+  const utcStr = msg.utc ? msg.utc.slice(11,19)||msg.utc : new Date().toISOString().slice(11,19);
+  document.getElementById('utc').textContent = _tz==='PT'
+    ? _fmtTime(utcStr) : utcStr + ' UTC';
   document.getElementById('blive').textContent=`${msg.active} / ${msg.total} live`;
   const bt=document.getElementById('btrig'),ba=document.getElementById('balrm');
   bt.style.display=msg.triggered>0?'':'none';ba.style.display=msg.alarmed>0?'':'none';
@@ -1113,43 +1167,10 @@ window._socket.on('stalta',msg=>{
   if(msg.alarmed>0)ba.textContent=`${msg.alarmed} alarmed`;
   document.getElementById('sst').textContent=
     `${msg.active}/${msg.total} stations live  ·  ${msg.triggered} triggered  ·  ${msg.alarmed} alarmed`;
-  const rows=msg.rows,tb=document.getElementById('stb');
-  while(tb.children.length>rows.length)tb.removeChild(tb.lastChild);
-  while(tb.children.length<rows.length)tb.appendChild(document.createElement('tr'));
-  rows.forEach((r,i)=>{
-    const tr=tb.children[i];
-    const pct=Math.min((r.stalta/8)*100,100).toFixed(1);
-    const bc=r.stalta>=ALARM?'br':r.stalta>=TRIG?'by':'bg';
-    const vc=r.stalta>=ALARM?'var(--red)':r.stalta>=TRIG?'var(--yel)':'var(--grn)';
-    const st=r.stalta>=ALARM?'ALARM':r.stalta>=TRIG?'TRIGGER':r.updated?'quiet':'waiting';
-    const [net,sta,chan]=r.key.split('.');
-    tr.innerHTML=`
-      <td style="color:${r.color};font-weight:600">${r.net}</td>
-      <td style="color:${r.color}">${r.sta}</td>
-      <td style="color:var(--dim)">${r.chan}</td>
-      <td style="color:${vc};font-weight:${r.stalta>=TRIG?700:400}">${r.stalta.toFixed(2)}</td>
-      <td><div class="bw"><div class="bf ${bc}" style="width:${pct}%"></div></div></td>
-      <td style="color:${vc}">${st}</td>
-      <td style="color:var(--dim)">${r.updated?r.updated+' UTC':'—'}</td>
-      <td><button class="obtn" onclick="window.open(BACKEND_URL+'/station/${net}/${sta}/${chan}','_blank')">waveform</button></td>`;
-  });
+  _renderStaltaTable(msg.rows||[]);
 });
 
-window._socket.on('events',msg=>{
-  const evs=msg.events,el=document.getElementById('el');
-  if(!evs.length){el.innerHTML='<div style="padding:10px;color:var(--dim)">No events</div>';return;}
-  const lat=evs[0];
-  if(lat.mag)document.getElementById('lbanner').textContent=`Latest  M${lat.mag}  ${(lat.origin_time||'').slice(11,19)} UTC`;
-  el.innerHTML=evs.map(ev=>{
-    const m=parseFloat(ev.mag)||0,mc=m>=4?'mh':m>=3?'mm':'ml',sel=ev.evid===selEvid?' sel':'';
-    return `<div class="evrow${sel}" data-evid="${ev.evid}" onclick="openEv('${ev.evid}')">
-      <div class="evtop"><span class="evmag ${mc}">M${ev.mag||'?'}</span><span class="evid">${ev.evid}</span></div>
-      <div class="evloc">${ev.lat}N  ${Math.abs(ev.lon)}W  ·  ${ev.depth} km</div>
-      <div class="evtime">${(ev.origin_time||'').slice(0,19)} UTC</div>
-      <div class="evph">${ev.phases} phases</div>
-    </div>`;
-  }).join('');
-});
+window._socket.on('events',msg=>{ _renderEvList(msg.events||[]); });
 
 window._socket.on('alert_event', ev => {
   showAlertToast(ev);
