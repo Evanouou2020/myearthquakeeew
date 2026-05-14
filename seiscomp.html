@@ -408,7 +408,7 @@ function _renderStaltaTable(rows) {
     const updFmt = r.updated ? _fmtTime(r.updated.replace(' UTC','')) : '—';
     tb.children[i].innerHTML = `
       <td style="color:${r.color};font-weight:600">${r.net}</td>
-      <td style="color:${r.color}">${r.sta}</td>
+      <td style="color:${r.color}">${r.sta}${r.city?`<br><span style="font-size:9px;color:var(--dim);font-weight:400">${r.city}</span>`:''}</td>
       <td style="color:var(--dim)">${chan}</td>
       <td style="color:${vc};font-weight:${r.stalta>=TRIG?700:400}">${r.stalta.toFixed(2)}</td>
       <td><div class="bw"><div class="bf ${bc}" style="width:${pct}%"></div></div></td>
@@ -616,6 +616,7 @@ function drawHealth(){
     const vc=r.stalta>=6?'var(--red)':r.stalta>=3?'var(--yel)':'var(--grn)';
     return `<div class="hcell ${cls}">
       <div class="hn" style="color:${r.color||'#aaa'}">${r.net}.${r.sta}</div>
+      ${r.city?`<div style="font-size:9px;color:var(--dim);line-height:1.3;margin-top:1px">${r.city}</div>`:''}
       <div class="hs" style="color:${vc}">STA/LTA ${r.stalta.toFixed(1)}</div>
       <div class="hs">${hs}</div>
     </div>`;
