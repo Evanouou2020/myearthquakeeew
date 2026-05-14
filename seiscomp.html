@@ -174,6 +174,29 @@ canvas.scrttv-cv{flex:1;height:52px;background:#060a10;display:block;cursor:cros
   <div class="at-loc" id="at-loc"></div>
   <div class="at-time" id="at-time"></div>
 </div>
+
+<!-- Station info popup -->
+<div id="sta-popup" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.6);
+     align-items:center;justify-content:center" onclick="if(event.target===this)closeStaPopup()">
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px 24px;
+       min-width:280px;max-width:360px;position:relative;font-family:'SF Mono',monospace">
+    <span onclick="closeStaPopup()" style="position:absolute;top:10px;right:14px;cursor:pointer;
+         color:#6e7681;font-size:14px">✕</span>
+    <div id="sp-title" style="font-size:15px;margin-bottom:12px"></div>
+    <div id="sp-city" style="color:#8b949e;font-size:11px;margin-bottom:8px"></div>
+    <div id="sp-coords" style="color:#c9d1d9;font-size:10px;margin-bottom:8px;letter-spacing:.3px"></div>
+    <div id="sp-stalta" style="font-size:12px;margin-bottom:6px"></div>
+    <div id="sp-updated" style="color:#6e7681;font-size:10px;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px">
+      <button id="sp-wfbtn" style="padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;
+        background:transparent;color:#58a6ff;border:1px solid #58a6ff;font-family:inherit">
+        📈 Waveform</button>
+      <button id="sp-osmbtn" style="padding:4px 12px;border-radius:5px;font-size:10px;cursor:pointer;
+        background:transparent;color:#3fb950;border:1px solid #3fb950;font-family:inherit">
+        🗺 OpenStreetMap</button>
+    </div>
+  </div>
+</div>
 <div id="hdr">
   <h1>SeisComP Live Dashboard</h1>
   <span class="pill pg" id="blive">— / —</span>
@@ -597,6 +620,38 @@ function drawMTime(){
   });
 }
 
+// ── Station info popup ─────────────────────────────────────────────────────────
+let _staPopupRow = null;
+function showStaPopup(key) {
+  const r = _staltaRows.find(x => x.key === key || `${x.net}.${x.sta}.${x.chan}` === key);
+  if (!r) return;
+  _staPopupRow = r;
+  const pop = document.getElementById('sta-popup');
+  const vc = r.stalta>=6?'var(--red)':r.stalta>=3?'var(--yel)':'var(--grn)';
+  const st = r.stalta>=6?'ALARM':r.stalta>=3?'TRIGGER':r.updated?'quiet':'no data';
+  const latStr = r.lat!=null ? `${Math.abs(r.lat).toFixed(3)}° ${r.lat>=0?'N':'S'}` : '—';
+  const lonStr = r.lon!=null ? `${Math.abs(r.lon).toFixed(3)}° ${r.lon>=0?'E':'W'}` : '—';
+  const elevStr = r.elev!=null ? `${Math.round(r.elev)} m` : '—';
+  const osmUrl = r.lat!=null ? `https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lon}&zoom=10` : null;
+  document.getElementById('sp-title').innerHTML =
+    `<span style="color:${r.color||'#aaa'};font-weight:700">${r.net}.${r.sta}</span>` +
+    `<span style="color:var(--dim);font-weight:400;font-size:10px;margin-left:6px">${r.chan||''}</span>`;
+  document.getElementById('sp-city').textContent = r.city || 'Location unknown';
+  document.getElementById('sp-coords').innerHTML =
+    `${latStr} &nbsp; ${lonStr} &nbsp; ↑${elevStr}`;
+  document.getElementById('sp-stalta').innerHTML =
+    `STA/LTA <span style="color:${vc};font-weight:700">${r.stalta.toFixed(2)}</span>` +
+    ` &nbsp; <span style="color:${vc}">${st.toUpperCase()}</span>`;
+  document.getElementById('sp-updated').textContent = r.updated ? `Last data: ${r.updated} UTC` : 'No data received';
+  const wfBtn = document.getElementById('sp-wfbtn');
+  wfBtn.onclick = () => { window.open(BACKEND_URL+`/station/${r.net}/${r.sta}/${r.chan||'BHZ'}`, '_blank'); };
+  const osmBtn = document.getElementById('sp-osmbtn');
+  if (osmUrl) { osmBtn.style.display=''; osmBtn.onclick=()=>window.open(osmUrl,'_blank'); }
+  else { osmBtn.style.display='none'; }
+  pop.style.display = 'flex';
+}
+function closeStaPopup() { document.getElementById('sta-popup').style.display='none'; }
+
 // ── Station health ─────────────────────────────────────────────────────────────
 function drawHealth(){
   const grid=document.getElementById('hgrid');
@@ -614,7 +669,8 @@ function drawHealth(){
       hs=age<60?`${Math.round(age)}s ago`:`${Math.round(age/60)}m ago`;
     }
     const vc=r.stalta>=6?'var(--red)':r.stalta>=3?'var(--yel)':'var(--grn)';
-    return `<div class="hcell ${cls}">
+    const key=r.key||`${r.net}.${r.sta}.${r.chan}`;
+    return `<div class="hcell ${cls}" onclick="showStaPopup('${key}')" style="cursor:pointer" title="Click for details">
       <div class="hn" style="color:${r.color||'#aaa'}">${r.net}.${r.sta}</div>
       ${r.city?`<div style="font-size:9px;color:var(--dim);line-height:1.3;margin-top:1px">${r.city}</div>`:''}
       <div class="hs" style="color:${vc}">STA/LTA ${r.stalta.toFixed(1)}</div>
