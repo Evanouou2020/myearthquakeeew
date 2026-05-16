@@ -1135,7 +1135,8 @@ const _lml=document.getElementById('livemap-link');
 if(_lml) _lml.href=BACKEND_URL+'/livemap';
 
 window._socket = io(BACKEND_URL, {
-  transports: ['polling', 'websocket'],   // polling first — more reliable through tunnels
+  transports: ['websocket', 'polling'],   // websocket first — works better through localhost.run
+  upgrade: true,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
   reconnectionAttempts: Infinity,
