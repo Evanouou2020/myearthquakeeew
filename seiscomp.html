@@ -3,49 +3,10 @@
 <meta charset="UTF-8"><title>SeisComP Dashboard</title>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-// Fetch backend URL from tunnel_url.json (updated whenever Mac tunnel restarts)
-const TUNNEL_JSON = "https://api.github.com/repos/Evanouou2020/myearthquakeeew/contents/tunnel_url.json";
-let BACKEND_URL = "";
-async function initBackend() {
-  try {
-    const res = await fetch(TUNNEL_JSON, {cache:"no-store", headers:{"Accept":"application/vnd.github.v3.raw"}});
-    if (res.ok) {
-      const d = await res.json();
-      if (d && d.url && d.url.startsWith("http")) {
-        BACKEND_URL = d.url.replace(/\/$/, "");
-        console.log("Backend URL:", BACKEND_URL);
-        return;
-      }
-    }
-  } catch(e) {}
-  document.body.innerHTML = '<div style="font-family:monospace;background:#0d1117;color:#f85149;padding:40px;text-align:center"><h2>⚠ Dashboard Offline</h2><p style="color:#8b949e;margin-top:12px">The SeisComP server is currently offline.<br>Check back later or visit <a href="https://myearthquake.dpdns.org" style="color:#58a6ff">myearthquake.dpdns.org</a></p></div>';
-  throw new Error("No backend URL");
-}
-
-// Watch tunnel_url.json every 30s — if URL changes, reconnect socket automatically
-function _startTunnelWatcher() {
-  setInterval(async () => {
-    try {
-      const res = await fetch(TUNNEL_JSON, {cache:"no-store", headers:{"Accept":"application/vnd.github.v3.raw"}});
-      if (!res.ok) return;
-      const d = await res.json();
-      const newUrl = (d && d.url) ? d.url.replace(/\/$/, "") : "";
-      if (newUrl && newUrl !== BACKEND_URL) {
-        console.log("Tunnel URL changed:", newUrl, "— reconnecting...");
-        BACKEND_URL = newUrl;
-        // Update livemap link
-        const lml = document.getElementById('livemap-link');
-        if (lml) lml.href = BACKEND_URL + '/livemap';
-        // Reconnect socket to new URL
-        if (window._socket) {
-          window._socket.disconnect();
-          window._socket.io.uri = BACKEND_URL;
-          window._socket.connect();
-        }
-      }
-    } catch(e) {}
-  }, 30000);
-}
+// Permanent Cloudflare tunnel — URL never changes
+const BACKEND_URL = "https://dashboard.myearthquake.dpdns.org";
+async function initBackend() { /* permanent URL, nothing to fetch */ }
+function _startTunnelWatcher() { /* no-op — URL is permanent */ }
 </script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

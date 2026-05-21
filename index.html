@@ -947,29 +947,12 @@ fetchSeismogram();
 setInterval(fetchSeismogram, 5000);
 
 // ── SEISCOMP LIVE MONITOR ──────────────────────────────
-// URL is fetched dynamically from tunnel_url.json (updated whenever tunnel restarts)
-const TUNNEL_JSON = "https://api.github.com/repos/Evanouou2020/myearthquakeeew/contents/tunnel_url.json";
-
-let _cachedDashUrl = null;
-let _cachedMapUrl  = null;
-let _urlFetchedAt  = 0;
-
+// Permanent Cloudflare tunnel — URL never changes
 async function fetchTunnelUrl() {
-  // Re-fetch at most once per 60s
-  const now = Date.now();
-  if (_cachedDashUrl && (now - _urlFetchedAt) < 60000) return { dash: _cachedDashUrl, map: _cachedMapUrl };
-  try {
-    const res = await fetch(TUNNEL_JSON, { cache:"no-store", headers:{"Accept":"application/vnd.github.v3.raw"} });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.url && data.url.startsWith("http")) {
-        _cachedDashUrl = data.url;
-        _cachedMapUrl  = data.map_url || (data.url + "/livemap");
-        _urlFetchedAt  = now;
-      }
-    }
-  } catch (e) { /* keep cached value */ }
-  return { dash: _cachedDashUrl || "about:blank", map: _cachedMapUrl || "about:blank" };
+  return {
+    dash: "https://dashboard.myearthquake.dpdns.org",
+    map:  "https://dashboard.myearthquake.dpdns.org/livemap"
+  };
 }
 
 let _monitorCurrentUrl = "";
