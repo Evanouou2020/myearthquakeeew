@@ -21,6 +21,31 @@ async function initBackend() {
   document.body.innerHTML = '<div style="font-family:monospace;background:#0d1117;color:#f85149;padding:40px;text-align:center"><h2>⚠ Dashboard Offline</h2><p style="color:#8b949e;margin-top:12px">The SeisComP server is currently offline.<br>Check back later or visit <a href="https://myearthquake.dpdns.org" style="color:#58a6ff">myearthquake.dpdns.org</a></p></div>';
   throw new Error("No backend URL");
 }
+
+// Watch tunnel_url.json every 30s — if URL changes, reconnect socket automatically
+function _startTunnelWatcher() {
+  setInterval(async () => {
+    try {
+      const res = await fetch(TUNNEL_JSON + "?_=" + Date.now(), {cache:"no-store"});
+      if (!res.ok) return;
+      const d = await res.json();
+      const newUrl = (d && d.url) ? d.url.replace(/\/$/, "") : "";
+      if (newUrl && newUrl !== BACKEND_URL) {
+        console.log("Tunnel URL changed:", newUrl, "— reconnecting...");
+        BACKEND_URL = newUrl;
+        // Update livemap link
+        const lml = document.getElementById('livemap-link');
+        if (lml) lml.href = BACKEND_URL + '/livemap';
+        // Reconnect socket to new URL
+        if (window._socket) {
+          window._socket.disconnect();
+          window._socket.io.uri = BACKEND_URL;
+          window._socket.connect();
+        }
+      }
+    } catch(e) {}
+  }, 30000);
+}
 </script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1143,6 +1168,9 @@ window._socket = io(BACKEND_URL, {
   timeout: 20000,
   forceNew: true,
 });
+
+// Start watching for tunnel URL changes — reconnects socket if tunnel restarts with new URL
+_startTunnelWatcher();
 
 // ── REST fallback polling — populates STA/LTA + events every 5s even without Socket.IO ──
 let _socketLive = false;
