@@ -403,8 +403,8 @@
   <span class="tb-sep">|</span>
   <span>REGION: SAN RAMON, CA</span>
   <div class="tb-right">
-    <a href="https://evanouou2020.github.io/myearthquakeeew/seiscomp.html" target="_blank" id="monitor-btn" style="margin-right:4px;text-decoration:none">▲ SeisComP Live</a>
-    <button id="monitor-btn" onclick="openMonitor('map')" style="border:1px solid var(--border-bright);background:transparent;color:var(--text-dim);font-family:var(--mono);font-size:0.7rem;padding:5px 12px;border-radius:2px;cursor:pointer">🗺 Live Map</button>
+    <button onclick="openMonitor('dashboard')" style="margin-right:4px;border:1px solid var(--accent-dim);background:transparent;color:var(--accent);font-family:var(--mono);font-size:0.7rem;padding:5px 12px;border-radius:2px;cursor:pointer">▲ SeisComP Live</button>
+    <button onclick="openMonitor('map')" style="border:1px solid var(--border-bright);background:transparent;color:var(--text-dim);font-family:var(--mono);font-size:0.7rem;padding:5px 12px;border-radius:2px;cursor:pointer">🗺 Live Map</button>
     <span class="tb-sep">|</span>
     <a class="ig-link" href="https://www.instagram.com/myearthquake1/" target="_blank" rel="noopener">&#9654; @myearthquake1</a>
     <span class="tb-sep">|</span>
@@ -972,6 +972,8 @@ async function fetchTunnelUrl() {
   return { dash: _cachedDashUrl || "about:blank", map: _cachedMapUrl || "about:blank" };
 }
 
+let _monitorCurrentUrl = "";
+
 async function openMonitor(target) {
   // target: 'dashboard' or 'map'
   const overlay  = document.getElementById("monitor-overlay");
@@ -992,10 +994,11 @@ async function openMonitor(target) {
 
   const urls = await fetchTunnelUrl();
   const url = (target === 'map') ? urls.map : urls.dash;
+  _monitorCurrentUrl = url;
 
   document.getElementById("ms-sub").textContent = url;
   openBtn.style.display = "";
-  openBtn.onclick = () => window.open(url, "_blank");
+  openBtn.onclick = () => window.open(_monitorCurrentUrl, "_blank");
 
   frame.src = url;
   // Cross-origin iframes don't fire onload reliably — use a timeout
@@ -1060,7 +1063,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeMonitor
     <span id="monitor-status">CONNECTING…</span>
     <span class="tb-sep">|</span>
     <span style="color:var(--text-dim);font-size:0.6rem">Local seismic network — real-time STA/LTA &amp; waveforms</span>
-    <button id="monitor-open-btn" style="display:none" onclick="window.open(monitorUrl,'_blank')">Open in new tab ↗</button>
+    <button id="monitor-open-btn" style="display:none" onclick="window.open(_monitorCurrentUrl,'_blank')">Open in new tab ↗</button>
     <button id="monitor-close-btn" onclick="closeMonitor()">✕ Close</button>
   </div>
   <iframe id="monitor-frame" style="display:none" allowfullscreen></iframe>
