@@ -948,7 +948,7 @@ setInterval(fetchSeismogram, 5000);
 
 // ── SEISCOMP LIVE MONITOR ──────────────────────────────
 // URL is fetched dynamically from tunnel_url.json (updated whenever tunnel restarts)
-const TUNNEL_JSON = "https://raw.githubusercontent.com/Evanouou2020/myearthquakeeew/main/tunnel_url.json";
+const TUNNEL_JSON = "https://api.github.com/repos/Evanouou2020/myearthquakeeew/contents/tunnel_url.json";
 
 let _cachedDashUrl = null;
 let _cachedMapUrl  = null;
@@ -959,7 +959,7 @@ async function fetchTunnelUrl() {
   const now = Date.now();
   if (_cachedDashUrl && (now - _urlFetchedAt) < 60000) return { dash: _cachedDashUrl, map: _cachedMapUrl };
   try {
-    const res = await fetch(TUNNEL_JSON + "?_=" + now, { cache: "no-store" });
+    const res = await fetch(TUNNEL_JSON, { cache:"no-store", headers:{"Accept":"application/vnd.github.v3.raw"} });
     if (res.ok) {
       const data = await res.json();
       if (data && data.url && data.url.startsWith("http")) {

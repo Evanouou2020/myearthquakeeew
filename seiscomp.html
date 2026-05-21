@@ -4,11 +4,11 @@
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
 // Fetch backend URL from tunnel_url.json (updated whenever Mac tunnel restarts)
-const TUNNEL_JSON = "https://raw.githubusercontent.com/Evanouou2020/myearthquakeeew/main/tunnel_url.json";
+const TUNNEL_JSON = "https://api.github.com/repos/Evanouou2020/myearthquakeeew/contents/tunnel_url.json";
 let BACKEND_URL = "";
 async function initBackend() {
   try {
-    const res = await fetch(TUNNEL_JSON + "?_=" + Date.now(), {cache:"no-store"});
+    const res = await fetch(TUNNEL_JSON, {cache:"no-store", headers:{"Accept":"application/vnd.github.v3.raw"}});
     if (res.ok) {
       const d = await res.json();
       if (d && d.url && d.url.startsWith("http")) {
@@ -26,7 +26,7 @@ async function initBackend() {
 function _startTunnelWatcher() {
   setInterval(async () => {
     try {
-      const res = await fetch(TUNNEL_JSON + "?_=" + Date.now(), {cache:"no-store"});
+      const res = await fetch(TUNNEL_JSON, {cache:"no-store", headers:{"Accept":"application/vnd.github.v3.raw"}});
       if (!res.ok) return;
       const d = await res.json();
       const newUrl = (d && d.url) ? d.url.replace(/\/$/, "") : "";
