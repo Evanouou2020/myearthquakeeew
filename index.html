@@ -293,6 +293,70 @@
     .about-block .kv .v { color: #8aacbc; }
 
     /* FOOTER */
+    /* ── Dashboard tables ── */
+    .section-wrap {
+      max-width: 1300px;
+      margin: 0 auto 18px;
+      padding: 0 20px;
+    }
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .section-title {
+      font-family: var(--sans);
+      font-weight: 700;
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+    }
+    .section-sub {
+      font-size: 0.62rem;
+      color: var(--text-dim);
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    #sta-table, #event-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.70rem;
+    }
+    #sta-table th, #event-table th {
+      background: var(--surface);
+      color: var(--text-dim);
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-align: left;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    #sta-table td, #event-table td {
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: middle;
+    }
+    #sta-table tr:last-child td, #event-table tr:last-child td { border-bottom: none; }
+    #sta-table tr:hover td, #event-table tr:hover td { background: rgba(0,180,255,0.04); }
+    .sta-ok   { color: var(--green); }
+    .sta-warn { color: var(--amber); }
+    .sta-err  { color: var(--red);   }
+    .evt-level-LOW     { color: #888; }
+    .evt-level-MEDIUM  { color: var(--amber); }
+    .evt-level-HIGH    { color: #ff8800; }
+    .evt-level-EXTREME { color: var(--red); }
+    .evt-type-pwave    { color: var(--accent); }
+    .evt-type-confirmed{ color: var(--green);  }
+    .evt-type-eew      { color: var(--red);    }
+    .evt-type-usgs     { color: #aaaaff;       }
+
     footer {
       max-width: 1300px;
       margin: 18px auto 28px;
@@ -392,6 +456,18 @@
     #monitor-splash .ms-icon { font-size: 2rem; color: var(--accent); }
     #monitor-splash .ms-msg  { letter-spacing: 0.05em; }
     #monitor-splash .ms-sub  { font-size: 0.63rem; color: #334455; }
+
+    @media (max-width: 600px) {
+      .layout { grid-template-columns: 1fr !important; }
+      #topbar { flex-wrap: wrap; height: auto; padding: 8px; gap: 8px; }
+      #clock-block { display: none; }
+      .hero-val { font-size: 2.2rem !important; }
+      .panel { padding: 12px !important; }
+      #seis-canvas { height: 160px !important; }
+      .section-wrap { padding: 0 10px; }
+      #sta-table th, #sta-table td,
+      #event-table th, #event-table td { font-size: 0.60rem; padding: 4px 6px; }
+    }
   </style>
 </head>
 <body>
@@ -557,6 +633,83 @@
       </div>
     </div>
   </details>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     STATION STATUS TABLE
+     Populated by WebSocket data — shows last data time per station.
+══════════════════════════════════════════════════════════════════════ -->
+<div class="section-wrap" id="station-section">
+  <div class="section-head">
+    <span class="section-title">STATION STATUS</span>
+    <span class="section-sub" id="sta-update-time">—</span>
+  </div>
+  <div class="table-wrap">
+    <table id="sta-table">
+      <thead>
+        <tr>
+          <th>Station</th>
+          <th>Last Data</th>
+          <th>Age</th>
+          <th>SR (sps)</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="sta-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     EVENT HISTORY LOG
+     Populated by WebSocket "event" messages from Python.
+══════════════════════════════════════════════════════════════════════ -->
+<div class="section-wrap" id="event-section">
+  <div class="section-head">
+    <span class="section-title">EVENT HISTORY</span>
+    <span class="section-sub">last 50 events this session</span>
+  </div>
+  <div class="table-wrap">
+    <table id="event-table">
+      <thead>
+        <tr>
+          <th>Time (UTC)</th>
+          <th>Type</th>
+          <th>Level</th>
+          <th>Location</th>
+          <th>ML</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody id="event-tbody">
+        <tr><td colspan="6" style="color:var(--text-dim);text-align:center">Waiting for events…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SEISMICITY STATS -->
+<div class="section-wrap" id="stats-section">
+  <div class="section-head">
+    <span class="section-title">SEISMICITY STATS</span>
+    <span class="section-sub" id="stats-update-time">session data</span>
+  </div>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;padding:10px 0;font-size:0.72rem">
+    <div><span style="color:var(--text-dim)">Events (7d):</span> <span id="stat-n7d" style="color:var(--accent)">—</span></div>
+    <div><span style="color:var(--text-dim)">Rate (7d):</span> <span id="stat-rate" style="color:var(--accent)">—</span>/day</div>
+    <div><span style="color:var(--text-dim)">b-value:</span> <span id="stat-bval" style="color:var(--accent)">—</span></div>
+    <div><span style="color:var(--text-dim)">Max ML (7d):</span> <span id="stat-maxml" style="color:var(--accent)">—</span></div>
+    <div><span style="color:var(--text-dim)">Aftershock P:</span> <span id="stat-asprob" style="color:var(--amber)">—</span></div>
+  </div>
+</div>
+
+<!-- MAGNITUDE vs TIME CHART -->
+<div class="section-wrap" id="mlchart-section">
+  <div class="section-head">
+    <span class="section-title">MAGNITUDE vs TIME</span>
+    <span class="section-sub">session events</span>
+  </div>
+  <canvas id="ml-chart" width="600" height="120" style="width:100%;background:var(--surface);border-radius:4px"></canvas>
 </div>
 
 <!-- FOOTER -->
@@ -748,143 +901,170 @@ setInterval(fetchUSGS, 60000);
 const canvas = document.getElementById("seis-canvas");
 const ctx = canvas.getContext("2d");
 const seisStatus = document.getElementById("seis-status");
-const seisRange = document.getElementById("seis-time-range");
+const seisRange  = document.getElementById("seis-time-range");
 
+// ── Ring buffer — parallel Float64Arrays for speed ──────────────────────────
+// Always ws:// — page is served by Python over plain HTTP so no mixed-content block
+const WS_URL = 'ws://localhost:8765';
+// Preferred station — matched by station code only, ignoring net/loc format differences
+// (SeedLink sends "PB.B054.--.EHZ"; loc "--" vs "" varies by server)
+const WS_PREF_STATION = "B054";
+const BUF_MAX         = 360000;   // 60 min @ 100 sps
+
+let wsActiveKey = null;           // station key currently being displayed
+
+let bufTimes = new Float64Array(BUF_MAX); // epoch seconds per sample
+let bufVals  = new Float64Array(BUF_MAX); // raw counts per sample
+let bufHead  = 0;   // write index (circular)
+let bufSize  = 0;   // number of valid samples
+
+function bufAppend(tEnd, sr, values) {
+  const n = values.length;
+  for (let i = 0; i < n; i++) {
+    const t = tEnd - (n - 1 - i) / sr;
+    bufTimes[bufHead] = t;
+    bufVals[bufHead]  = values[i];
+    bufHead = (bufHead + 1) % BUF_MAX;
+    if (bufSize < BUF_MAX) bufSize++;
+  }
+}
+
+function wsKeyMatch(key) {
+  // Accept the preferred station regardless of network/location format differences
+  // e.g. "PB.B054..EHZ" and "PB.B054.--.EHZ" both match WS_PREF_STATION="B054"
+  if (wsActiveKey) return key === wsActiveKey;
+  const parts = key.split(".");
+  if (parts[1] === WS_PREF_STATION || parts[1] === WS_PREF_STATION) {
+    wsActiveKey = key;   // lock onto this key
+    return true;
+  }
+  // Fallback: if preferred station never arrives, accept whatever comes first
+  return false;
+}
+
+function wsKeyMatchOrLock(key) {
+  if (wsActiveKey) return key === wsActiveKey;
+  // Check preferred
+  const sta = key.split(".")[1] || "";
+  if (sta === WS_PREF_STATION || !wsActiveKey) {
+    wsActiveKey = key;
+    return true;
+  }
+  return false;
+}
+
+// Return {times, vals} arrays for the most recent windowSec seconds
+function bufWindow(windowSec) {
+  if (bufSize === 0) return { times: [], vals: [] };
+  const newestIdx = (bufHead - 1 + BUF_MAX) % BUF_MAX;
+  const tEnd   = bufTimes[newestIdx];
+  const tStart = tEnd - windowSec;
+  const times = [], vals = [];
+  // Walk backward from head, stop when sample is outside window
+  for (let k = 0; k < bufSize; k++) {
+    const idx = (bufHead - 1 - k + BUF_MAX) % BUF_MAX;
+    const t   = bufTimes[idx];
+    if (t < tStart) break;
+    times.unshift(t);
+    vals.unshift(bufVals[idx]);
+  }
+  return { times, vals };
+}
+
+// ── Canvas ───────────────────────────────────────────────────────────────────
 let displayW = 0, displayH = 160;
 
 function resizeCanvas() {
   const rect = canvas.parentElement.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  displayW = rect.width;
-  displayH = 160;
-  canvas.width = displayW * dpr;
+  const dpr  = window.devicePixelRatio || 1;
+  displayW   = rect.width;
+  canvas.width  = displayW * dpr;
   canvas.height = displayH * dpr;
-  canvas.style.width = displayW + "px";
+  canvas.style.width  = displayW + "px";
   canvas.style.height = displayH + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 resizeCanvas();
-window.addEventListener("resize", () => { resizeCanvas(); drawWaveform(lastSamples, lastMeta); });
+window.addEventListener("resize", () => { resizeCanvas(); redraw(); });
 
-let lastSamples = [];
-let lastMeta = null;
+function pdtStr(d) {
+  return d.toLocaleTimeString("en-US", {
+    timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
+  }) + " PDT";
+}
 
-function drawWaveform(samples, meta) {
+function drawWaveform(vals, tStartMs, tEndMs) {
   const W = displayW, H = displayH;
   ctx.clearRect(0, 0, W, H);
-
-  // Background
   ctx.fillStyle = "#020405";
   ctx.fillRect(0, 0, W, H);
 
-  // Grid lines
-  ctx.strokeStyle = "#0d1520";
-  ctx.lineWidth = 1;
-  for (let i = 1; i < 6; i++) {
-    const y = (H / 6) * i;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-  }
-  for (let i = 1; i < 12; i++) {
-    const x = (W / 12) * i;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-  }
-
-  // Zero line
+  // Grid
+  ctx.strokeStyle = "#0d1520"; ctx.lineWidth = 1;
+  for (let i = 1; i < 6; i++) { const y=(H/6)*i; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  for (let i = 1; i < 12; i++) { const x=(W/12)*i; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
   ctx.strokeStyle = "#1a3040";
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, H/2); ctx.lineTo(W, H/2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
 
-  if (!samples || samples.length < 2) {
-    ctx.fillStyle = "#4a6070";
-    ctx.font = "12px 'Share Tech Mono', monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("No waveform data", W/2, H/2 - 6);
-    ctx.font = "10px 'Share Tech Mono', monospace";
-    ctx.fillText("Station may be offline or data unavailable", W/2, H/2 + 12);
+  if (!vals || vals.length < 2) {
+    ctx.fillStyle = "#4a6070"; ctx.textAlign = "center";
+    ctx.font = "12px 'Share Tech Mono',monospace";
+    ctx.fillText("Waiting for live data…", W/2, H/2 - 6);
+    ctx.font = "10px 'Share Tech Mono',monospace";
+    ctx.fillText("Python monitor must be running", W/2, H/2 + 12);
     return;
   }
 
-  // Scale to true min/max with 15% wiggle room on both ends
   let lo = Infinity, hi = -Infinity;
-  for (const v of samples) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  const margin = (hi - lo) * 0.15 || 1e-12;
+  for (const v of vals) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  const margin = (hi - lo) * 0.15 || 1;
   const center = (hi + lo) / 2;
-  const halfRange = Math.max((hi - lo) / 2 + margin, 1e-12);
-  const pad = H * 0.08;
+  const halfRange = Math.max((hi - lo) / 2 + margin, 1);
+  const pad = H * 0.08, mid = H / 2, amp = (H / 2) - pad;
 
-  // Draw waveform
-  ctx.strokeStyle = "#00d472";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#00d472"; ctx.lineWidth = 1;
   ctx.beginPath();
-  const mid = H / 2;
-  const amp = (H / 2) - pad;
-  for (let i = 0; i < samples.length; i++) {
-    const x = (i / (samples.length - 1)) * W;
-    const norm = Math.max(-1, Math.min(1, (samples[i] - center) / halfRange));
-    const y = mid - norm * amp;
+  for (let i = 0; i < vals.length; i++) {
+    const x    = (i / (vals.length - 1)) * W;
+    const norm = Math.max(-1, Math.min(1, (vals[i] - center) / halfRange));
+    const y    = mid - norm * amp;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
   ctx.stroke();
 
-  // Time markers
-  if (meta && meta.startMs && meta.endMs) {
-    const totalMs = meta.endMs - meta.startMs;
-    const intervalMin = totalMs <= 6*60000 ? 1 : totalMs <= 12*60000 ? 2 : totalMs <= 35*60000 ? 5 : 10;
-    const intervalMs = intervalMin * 60000;
-
-    // Find first marker time (ceil to next interval boundary)
-    const firstMark = Math.ceil(meta.startMs / intervalMs) * intervalMs;
-
-    ctx.font = "9px 'Share Tech Mono', monospace";
-    for (let t = firstMark; t < meta.endMs; t += intervalMs) {
-      const x = ((t - meta.startMs) / totalMs) * W;
-      // Tick line
-      ctx.strokeStyle = "#1e3a50";
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - 18); ctx.stroke();
-      // Label
-      const label = new Date(t).toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", hour12:false });
-      ctx.fillStyle = "#2a5060";
-      ctx.textAlign = "center";
-      ctx.fillText(label, x, H - 6);
+  // Time axis markers
+  if (tStartMs && tEndMs) {
+    const totalMs   = tEndMs - tStartMs;
+    const intMin    = totalMs <= 6*60000 ? 1 : totalMs <= 12*60000 ? 2 : totalMs <= 35*60000 ? 5 : 10;
+    const intMs     = intMin * 60000;
+    const firstMark = Math.ceil(tStartMs / intMs) * intMs;
+    ctx.font = "9px 'Share Tech Mono',monospace";
+    for (let t = firstMark; t < tEndMs; t += intMs) {
+      const x = ((t - tStartMs) / totalMs) * W;
+      ctx.strokeStyle = "#1e3a50"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H-18); ctx.stroke();
+      const lbl = new Date(t).toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", hour12:false });
+      ctx.fillStyle = "#2a5060"; ctx.textAlign = "center";
+      ctx.fillText(lbl, x, H-6);
     }
-
   }
 
-  // Y-axis counts
-  const yAxisW = 48;
-  const maxCount = (halfRange * 1e8).toFixed(1); // scale to readable units
+  // Y-axis labels
   const ySteps = 4;
-  ctx.font = "8px 'Share Tech Mono', monospace";
-  ctx.textAlign = "right";
+  ctx.font = "8px 'Share Tech Mono',monospace"; ctx.textAlign = "right";
   for (let i = 0; i <= ySteps; i++) {
     const frac = i / ySteps;
-    const y = pad + frac * (H - pad * 2);
-    const val = ((1 - frac * 2) * halfRange * 1e8).toFixed(1);
-    ctx.fillStyle = "#1e3a4a";
-    ctx.fillText(val, W - 4, y + 3);
-    // Subtle horizontal rule
-    ctx.strokeStyle = "#0e1e28";
-    ctx.lineWidth = 0.5;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W - yAxisW, y); ctx.stroke();
+    const y    = pad + frac * (H - pad * 2);
+    const val  = ((1 - frac * 2) * halfRange).toFixed(0);
+    ctx.fillStyle = "#1e3a4a"; ctx.fillText(val, W - 4, y + 3);
+    ctx.strokeStyle = "#0e1e28"; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W-48,y); ctx.stroke();
   }
-  // Unit label
   ctx.fillStyle = "#1e3a4a";
-  ctx.font = "8px 'Share Tech Mono', monospace";
-  ctx.textAlign = "right";
-  ctx.fillText("×10⁻⁸", W - 4, H - 6);
+  ctx.fillText("cts", W - 4, H - 6);
 }
 
-function pdtStr(d) {
-  return d.toLocaleTimeString("en-US", { timeZone:"America/Los_Angeles", hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false }) + " PDT";
-}
-
-const SEIS_CANDIDATES = [
-  "net=PB&sta=B054&loc=&cha=EHZ",
-  "net=PB&sta=B054&loc=--&cha=EHZ",
-  "net=PB&sta=B054&loc=*&cha=EHZ",
-];
-
+// ── Window selector ──────────────────────────────────────────────────────────
 let seisMinutes = 5;
 
 function setSeisWindow(min) {
@@ -892,55 +1072,109 @@ function setSeisWindow(min) {
   document.querySelectorAll(".seis-win-btn").forEach(b => {
     b.classList.toggle("active", parseInt(b.textContent) === min);
   });
-  fetchSeismogram();
+  redraw();
 }
 
-async function fetchSeismogram() {
-  const endTime = new Date();
-  const startTime = new Date(endTime.getTime() - seisMinutes * 60 * 1000);
-  const fmt = d => d.toISOString().slice(0, 19);
+function redraw() {
+  const win = bufWindow(seisMinutes * 60);
+  if (win.times.length < 2) {
+    drawWaveform(null, 0, 0);
+    return;
+  }
+  const tStartMs = win.times[0] * 1000;
+  const tEndMs   = win.times[win.times.length - 1] * 1000;
+  drawWaveform(win.vals, tStartMs, tEndMs);
+  const tEndDate = new Date(tEndMs);
+  seisRange.textContent = pdtStr(new Date(tStartMs)) + " → " + pdtStr(tEndDate);
+}
 
-  let lastErr = "no candidates";
-  for (const selector of SEIS_CANDIDATES) {
+// ── WebSocket connection ──────────────────────────────────────────────────────
+let wsSocket   = null;
+let wsUsing    = false;    // true once first packet received
+let wsReconnectTimer = null;
+
+function wsConnect() {
+  if (wsSocket) { try { wsSocket.close(); } catch {} }
+  wsSocket = new WebSocket(WS_URL);
+
+  wsSocket.onopen = () => {
+    seisStatus.textContent = "LIVE — connecting to monitor…";
+    seisStatus.className   = "ok";
+    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  };
+
+  wsSocket.onmessage = e => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch { return; }
+
+    // ── Event log messages (type != "waveform") ─────────────────────────
+    if (msg.type === "stats") { dashUpdateStats(msg); return; }
+    if (msg.type === "event") {
+      dashAddEvent(msg);
+      if (msg.ml != null) { mlChartAddPoint(msg.time, msg.ml); }
+      return;
+    }
+    if (msg.type === "station_status") { dashUpdateStation(msg); return; }
+
+    // ── Waveform data ────────────────────────────────────────────────────
+    if (!wsKeyMatchOrLock(msg.key)) {
+      dashUpdateStation({ key: msg.key, t_end: msg.t_end, sr: msg.sr });
+      return;
+    }
+    wsUsing = true;
+    seisStatus.textContent = `LIVE — ${wsActiveKey}`;
+    seisStatus.className   = "ok";
+    dashUpdateStation({ key: msg.key, t_end: msg.t_end, sr: msg.sr });
+    bufAppend(msg.t_end, msg.sr, msg.v);
+    redraw();
+  };
+
+  wsSocket.onerror = () => {};
+
+  wsSocket.onclose = () => {
+    if (wsUsing) {
+      seisStatus.textContent = "reconnecting…";
+      seisStatus.className   = "";
+    } else {
+      // Never received data — Python not running; fall back to IRIS REST
+      seisStatus.textContent = "no local monitor — using IRIS (delayed)";
+      seisStatus.className   = "";
+      fetchSeismogramIRIS();
+      setInterval(fetchSeismogramIRIS, 30000);
+      return;
+    }
+    wsReconnectTimer = setTimeout(wsConnect, 4000);
+  };
+}
+
+// ── IRIS REST fallback (used only when Python monitor is not running) ─────────
+async function fetchSeismogramIRIS() {
+  const fmt = d => d.toISOString().slice(0,19);
+  for (const delayMin of [2, 5, 10, 20]) {
+    const endTime   = new Date(Date.now() - delayMin * 60 * 1000);
+    const startTime = new Date(endTime.getTime() - seisMinutes * 60 * 1000);
     const url = `https://service.iris.edu/irisws/timeseries/1/query` +
-      `?${selector}&starttime=${fmt(startTime)}&endtime=${fmt(endTime)}` +
-      `&output=ascii1&demean=true&scale=auto`;
+      `?net=PB&sta=B054&loc=--&cha=EHZ` +
+      `&starttime=${fmt(startTime)}&endtime=${fmt(endTime)}&output=ascii1&demean=true`;
     try {
       const res = await fetch(url);
-      if (!res.ok) { lastErr = "HTTP " + res.status; continue; }
+      if (!res.ok) continue;
       const text = await res.text();
-      if (!text || text.trim().length === 0) { lastErr = "empty response"; continue; }
-
+      if (!text || !text.includes("TIMESERIES")) continue;
       const lines = text.trim().split("\n");
-      const spsMatch = lines[0].match(/([\d.]+)\s+sps/i);
-      const sps = spsMatch ? parseFloat(spsMatch[1]) : "?";
-
-      const samples = [];
-      for (let i = 1; i < lines.length; i++) {
-        const v = parseFloat(lines[i].trim());
-        if (!isNaN(v)) samples.push(v);
-      }
-      if (samples.length < 2) { lastErr = "no samples"; continue; }
-
-      lastSamples = samples;
-      lastMeta = {
-        sps,
-        startMs: startTime.getTime(),
-        endMs: endTime.getTime(),
-        startStr: pdtStr(startTime),
-        endStr: pdtStr(endTime),
-      };
-      drawWaveform(lastSamples, lastMeta);
-      seisStatus.textContent = "live";
-      seisStatus.className = "ok";
-      seisRange.textContent = `${pdtStr(startTime)} → ${pdtStr(endTime)}`;
+      const sps = parseFloat((lines[0].match(/([\d.]+)\s+sps/i)||[])[1]) || 100;
+      const vals = [];
+      for (let i = 1; i < lines.length; i++) { const v = parseFloat(lines[i]); if (!isNaN(v)) vals.push(v); }
+      if (vals.length < 2) continue;
+      drawWaveform(vals, startTime.getTime(), endTime.getTime());
+      seisStatus.textContent = `IRIS fallback (−${delayMin}m lag)`;
+      seisStatus.className   = "ok";
+      seisRange.textContent  = pdtStr(startTime) + " → " + pdtStr(endTime);
       return;
-    } catch (e) { lastErr = e.message; }
+    } catch {}
   }
-
-  seisStatus.textContent = "unavailable — " + lastErr;
-  seisStatus.className = "err";
-  drawWaveform([], null);
+  seisStatus.textContent = "unavailable"; seisStatus.className = "err";
+  drawWaveform(null, 0, 0);
 }
 
 fetchSeismogram();
@@ -1036,6 +1270,136 @@ setInterval(checkDashboardHealth, 30000);
 
 // Close on Escape key
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeMonitor(); });
+
+// ── STATION STATUS DASHBOARD ─────────────────────────────────────────────────
+const staData = {};   // key → { t_end, sr, lastSeen }
+
+function dashUpdateStation(msg) {
+  if (!msg.key) return;
+  staData[msg.key] = { t_end: msg.t_end, sr: msg.sr, lastSeen: Date.now() };
+  renderStaTable();
+}
+
+function renderStaTable() {
+  const tbody = document.getElementById("sta-tbody");
+  if (!tbody) return;
+  const now   = Date.now() / 1000;
+  const rows  = Object.entries(staData).sort((a,b) => a[0].localeCompare(b[0]));
+  tbody.innerHTML = rows.map(([key, d]) => {
+    const ageSec = d.t_end ? (now - d.t_end) : null;
+    const ageStr = ageSec == null ? "—"
+                 : ageSec <   5  ? "● live"
+                 : ageSec <  60  ? `${ageSec.toFixed(0)}s ago`
+                 :                 `${(ageSec/60).toFixed(1)}m ago`;
+    const cls    = ageSec == null ? "" : ageSec < 10 ? "sta-ok" : ageSec < 120 ? "sta-warn" : "sta-err";
+    const tStr   = d.t_end ? new Date(d.t_end*1000).toISOString().slice(11,19) + " UTC" : "—";
+    const srStr  = d.sr    ? `${d.sr} sps` : "—";
+    return `<tr>
+      <td>${key}</td>
+      <td>${tStr}</td>
+      <td class="${cls}">${ageStr}</td>
+      <td>${srStr}</td>
+      <td class="${cls}">${ageSec == null ? "—" : ageSec < 10 ? "LIVE" : ageSec < 120 ? "OK" : "STALE"}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="5" style="color:var(--text-dim);text-align:center">Waiting for data…</td></tr>`;
+  const staUpdateEl = document.getElementById("sta-update-time");
+  if (staUpdateEl) staUpdateEl.textContent = "updated " + new Date().toISOString().slice(11,19) + " UTC";
+}
+setInterval(renderStaTable, 5000);   // refresh age column every 5s
+
+// ── EVENT HISTORY LOG ─────────────────────────────────────────────────────────
+const evtHistory = [];
+const EVT_MAX    = 50;
+
+function dashAddEvent(msg) {
+  evtHistory.unshift(msg);   // newest first
+  if (evtHistory.length > EVT_MAX) evtHistory.length = EVT_MAX;
+  renderEvtTable();
+}
+
+function renderEvtTable() {
+  const tbody = document.getElementById("event-tbody");
+  if (!tbody || !evtHistory.length) return;
+  tbody.innerHTML = evtHistory.map(ev => {
+    const t    = ev.time ? new Date(ev.time*1000).toISOString().slice(11,19) + " UTC" : "—";
+    const type = (ev.etype || "").toLowerCase();
+    const tcls = type.includes("pwave") ? "evt-type-pwave"
+               : type.includes("confirm") ? "evt-type-confirmed"
+               : type.includes("eew") ? "evt-type-eew"
+               : type.includes("usgs") ? "evt-type-usgs" : "";
+    const lvl  = (ev.level || "").toUpperCase();
+    const lcls = `evt-level-${lvl}`;
+    const ml   = ev.ml != null ? `M${ev.ml > 0 ? "+" : ""}${ev.ml.toFixed(1)}` : "—";
+    return `<tr>
+      <td>${t}</td>
+      <td class="${tcls}">${ev.etype || "—"}</td>
+      <td class="${lcls}">${lvl || "—"}</td>
+      <td>${ev.location || "—"}</td>
+      <td>${ml}</td>
+      <td style="color:var(--text-dim);font-size:0.62rem">${ev.detail || ""}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ── SEISMICITY STATS (from WebSocket "stats" messages) ──────────────────────
+function dashUpdateStats(msg) {
+  if (msg.n7d   != null) { const el = document.getElementById("stat-n7d");   if (el) el.textContent = msg.n7d; }
+  if (msg.rate  != null) { const el = document.getElementById("stat-rate");  if (el) el.textContent = msg.rate.toFixed(1); }
+  if (msg.bval  != null) { const el = document.getElementById("stat-bval");  if (el) el.textContent = msg.bval.toFixed(2); }
+  if (msg.maxml != null) { const el = document.getElementById("stat-maxml"); if (el) el.textContent = "M" + (msg.maxml > 0 ? "+" : "") + msg.maxml.toFixed(1); }
+  if (msg.asprob != null) { const el = document.getElementById("stat-asprob"); if (el) el.textContent = (msg.asprob*100).toFixed(0) + "%"; }
+  const statsEl = document.getElementById("stats-update-time");
+  if (statsEl) statsEl.textContent = "updated " + new Date().toISOString().slice(11,19) + " UTC";
+}
+
+// ── MAGNITUDE VS TIME CHART ──────────────────────────────────────────────────
+const mlHistory = [];   // [{t, ml}]
+const mlCanvas  = document.getElementById("ml-chart");
+
+function mlChartAddPoint(t, ml) {
+  mlHistory.push({t, ml});
+  if (mlHistory.length > 200) mlHistory.shift();
+  mlChartDraw();
+}
+
+function mlChartDraw() {
+  if (!mlCanvas) return;
+  const ctx2 = mlCanvas.getContext("2d");
+  const W = mlCanvas.width, H = mlCanvas.height;
+  ctx2.clearRect(0, 0, W, H);
+  if (mlHistory.length < 2) {
+    ctx2.fillStyle = "#4a6070";
+    ctx2.font = "12px monospace";
+    ctx2.fillText("Waiting for events…", 10, H/2);
+    return;
+  }
+  const tMin = mlHistory[0].t, tMax = mlHistory[mlHistory.length-1].t;
+  const mlMin = Math.min(...mlHistory.map(p=>p.ml)) - 0.5;
+  const mlMax = Math.max(...mlHistory.map(p=>p.ml)) + 0.5;
+  const pad = {l:40, r:10, t:10, b:24};
+  const W2 = W-pad.l-pad.r, H2 = H-pad.t-pad.b;
+  const tx = t => pad.l + (tMax===tMin ? W2/2 : (t-tMin)/(tMax-tMin)*W2);
+  const ty = ml => pad.t + H2 - (ml-mlMin)/(mlMax-mlMin)*H2;
+  // Grid
+  ctx2.strokeStyle = "#1a2030"; ctx2.lineWidth = 1;
+  for (let m = Math.ceil(mlMin); m <= mlMax; m++) {
+    ctx2.beginPath(); ctx2.moveTo(pad.l, ty(m)); ctx2.lineTo(W-pad.r, ty(m)); ctx2.stroke();
+    ctx2.fillStyle = "#4a6070"; ctx2.font = "10px monospace";
+    ctx2.fillText("M"+(m>=0?"+":"")+m, 2, ty(m)+4);
+  }
+  // Points
+  mlHistory.forEach(p => {
+    const col = p.ml >= 4 ? "#ff3333" : p.ml >= 3 ? "#ff8800" : p.ml >= 2 ? "#ffaa00" : "#00b4ff";
+    ctx2.beginPath();
+    ctx2.arc(tx(p.t), ty(p.ml), 4, 0, Math.PI*2);
+    ctx2.fillStyle = col; ctx2.fill();
+  });
+}
+
+// Start — try WebSocket first, IRIS is automatic fallback via onclose
+drawWaveform(null, 0, 0);
+mlChartDraw();
+wsConnect();
 </script>
 
 <!-- SEISCOMP LIVE MONITOR OVERLAY -->
