@@ -1275,8 +1275,9 @@ function _staltaCls(v) {
 }
 
 function _staltaMax1h(hist) {
+  // Returns { v, t } of the peak reading, or null
   if (!hist || hist.length === 0) return null;
-  return Math.max(...hist.map(p => p.v));
+  return hist.reduce((best, p) => p.v > best.v ? p : best, hist[0]);
 }
 
 function renderStaTable() {
@@ -1302,9 +1303,11 @@ function renderStaTable() {
     const sVal    = d.stalta;
     const sCls    = _staltaCls(sVal);
     const sStr    = sVal != null ? sVal.toFixed(2) : "—";
-    const mx      = _staltaMax1h(d.staltaHist);
-    const mxCls   = _staltaCls(mx);
-    const mxStr   = mx  != null ? mx.toFixed(2)  : "—";
+    const mxPeak  = _staltaMax1h(d.staltaHist);
+    const mxCls   = _staltaCls(mxPeak?.v);
+    const mxStr   = mxPeak != null
+      ? `${mxPeak.v.toFixed(2)} <span style="color:var(--text-dim);font-size:0.6rem">@ ${new Date(mxPeak.t*1000).toISOString().slice(11,19)} UTC</span>`
+      : "—";
     const status  = ageSec == null ? "—" : ageSec < 10 ? "LIVE" : ageSec < 120 ? "OK" : "STALE";
     return `<tr>
       <td>${key}</td>
@@ -1321,14 +1324,18 @@ function renderStaTable() {
   if (staUpdateEl) staUpdateEl.textContent = "updated " + new Date().toISOString().slice(11,19) + " UTC";
 
   // Update network-wide peak STA/LTA over 1h in stats panel
-  const allMax = Object.values(staData)
+  const allPeaks = Object.values(staData)
     .map(d => _staltaMax1h(d.staltaHist))
-    .filter(v => v != null);
-  const netMax = allMax.length ? Math.max(...allMax) : null;
+    .filter(p => p != null);
+  const netPeak = allPeaks.length
+    ? allPeaks.reduce((best, p) => p.v > best.v ? p : best, allPeaks[0])
+    : null;
   const netMaxEl = document.getElementById("stat-peak-stalta");
   if (netMaxEl) {
-    netMaxEl.textContent = netMax != null ? netMax.toFixed(2) : "—";
-    netMaxEl.className   = _staltaCls(netMax);
+    netMaxEl.innerHTML = netPeak != null
+      ? `${netPeak.v.toFixed(2)} <span style="color:var(--text-dim);font-size:0.6rem">@ ${new Date(netPeak.t*1000).toISOString().slice(11,19)} UTC</span>`
+      : "—";
+    netMaxEl.className = _staltaCls(netPeak?.v);
   }
 }
 setInterval(renderStaTable, 2000);   // refresh every 2s (stalta changes fast)
