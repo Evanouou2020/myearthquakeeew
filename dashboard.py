@@ -41,6 +41,12 @@ DISCORD_WEBHOOKS = [
 ]
 EVENT_DISCORD_MIN_MAG  = 0.0   # announce ALL events (set higher to filter)
 DISCORD_EVERYONE_MAG   = 5.0   # @everyone mention threshold (both prelim + confirmed)
+
+# @everyone is sent at most ONCE per event — tracked by event ID (confirmed)
+# and by a per-session cooldown (preliminary, since they lack stable IDs).
+_everyone_pinged_events:  set  = set()   # evids already pinged
+_everyone_prelim_last_t: float = 0.0     # epoch of last prelim @everyone
+_EVERYONE_PRELIM_COOLDOWN = 1800         # 30 min between prelim @everyone pings
 PRELIM_EMAIL_ENABLED   = False   # set to True and fill below
 PRELIM_EMAIL_FROM      = "your.email@gmail.com"
 PRELIM_EMAIL_TO        = ["your.email@gmail.com"]
@@ -935,9 +941,17 @@ def _send_prelim_discord(ev):
     img = _make_map_image(lat, lon, zoom)
     image_ref = "attachment://map.png" if img else None
 
+    # @everyone fires at most once per 30-minute window for prelim detections
+    import time as _time
+    global _everyone_prelim_last_t
+    do_everyone = (mag >= DISCORD_EVERYONE_MAG
+                   and (_time.time() - _everyone_prelim_last_t) >= _EVERYONE_PRELIM_COOLDOWN)
+    if do_everyone:
+        _everyone_prelim_last_t = _time.time()
+
     payload = {
         "username": "SeisComP Monitor",
-        "content": "@everyone" if mag >= DISCORD_EVERYONE_MAG else "",
+        "content": "@everyone" if do_everyone else "",
         "embeds": [{
             "title": title,
             "url": osm_url,
@@ -1007,9 +1021,14 @@ def _send_event_discord(ev):
     img = _make_map_image(lat, lon, zoom)
     image_ref = "attachment://map.png" if img else None
 
+    # @everyone fires at most once per confirmed event ID
+    do_everyone = (mag >= DISCORD_EVERYONE_MAG and evid not in _everyone_pinged_events)
+    if do_everyone:
+        _everyone_pinged_events.add(evid)
+
     payload = {
         "username": "SeisComP Monitor",
-        "content": "@everyone" if mag >= DISCORD_EVERYONE_MAG else "",
+        "content": "@everyone" if do_everyone else "",
         "embeds": [{
             "title": f"{warn_flag}M{mag:.1f} Earthquake — SeisComP Confirmed",
             "url": osm_url,
@@ -2109,6 +2128,26 @@ def api_stations():
             "city":      state.city if state else info.get("city", ""),
         })
     return jsonify(rows)
+
+@app.route("/api/stalta_peaks")
+def api_stalta_peaks():
+    """Return STA/LTA peak readings from the last hour for all stations."""
+    try:
+        import sqlite3, time as _time
+        db_path = "/Users/OuOu/PycharmProjects/quake_alert.py/seismic_catalog.db"
+        since = _time.time() - 3600
+        conn = sqlite3.connect(db_path, check_same_thread=False)
+        rows = conn.execute(
+            "SELECT ts, key, net, sta, chan, stalta FROM stalta_peaks WHERE ts >= ? ORDER BY ts ASC",
+            (since,)
+        ).fetchall()
+        conn.close()
+        return jsonify([
+            {"ts": r[0], "key": r[1], "net": r[2], "sta": r[3], "chan": r[4], "stalta": r[5]}
+            for r in rows
+        ])
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
 @app.route("/api/quality")
 def api_quality():

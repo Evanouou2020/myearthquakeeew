@@ -939,13 +939,48 @@ def _omori_utsu_prob(ml_main, hours=AFTERSHOCK_WINDOW_HOURS):
 _db_conn = [None]
 _db_lock = threading.Lock()
 
+# Per-station cooldown for peak recording: key → last_recorded_ts
+_peak_last_recorded: dict = {}
+_PEAK_COOLDOWN_SEC = 300  # record at most one peak per station per 5 min
+
+def _record_stalta_peak(key, net, sta, chan, stalta_val):
+    """Write a STA/LTA peak to the database (rate-limited per station)."""
+    if not CATALOG_ENABLED: return
+    conn = _db_conn[0]
+    if conn is None: return
+    now = time.time()
+    if now - _peak_last_recorded.get(key, 0) < _PEAK_COOLDOWN_SEC:
+        return
+    _peak_last_recorded[key] = now
+    try:
+        with _db_lock:
+            conn.execute(
+                "INSERT INTO stalta_peaks (ts, key, net, sta, chan, stalta) VALUES (?,?,?,?,?,?)",
+                (now, key, net, sta, chan, round(stalta_val, 3))
+            )
+            conn.commit()
+    except Exception as exc:
+        _log("PEAK DB ERR", str(exc))
+
 def _init_catalog_db():
-    """Create SQLite database and events table if not exists."""
+    """Create SQLite database, events table, and stalta_peaks table if not exists."""
     if not CATALOG_ENABLED:
         return
     import sqlite3
     try:
         conn = sqlite3.connect(CATALOG_DB_PATH, check_same_thread=False)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS stalta_peaks (
+                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts      REAL    NOT NULL,
+                key     TEXT    NOT NULL,
+                net     TEXT,
+                sta     TEXT,
+                chan    TEXT,
+                stalta  REAL    NOT NULL
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_stalta_peaks_ts ON stalta_peaks(ts)")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS events (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3001,6 +3036,10 @@ class QuakeClient(EasySeedLinkClient):
                 cft    = recursive_sta_lta(arr, ns, nl)
                 st.cft = cft          # numpy array — replaced each packet, no deque needed
                 ratio  = float(cft[-1]); st.last_ratio = ratio
+
+                # ── Persist elevated peaks to database (rate-limited) ─────────
+                if ratio >= TRIGGER_OFF:
+                    _record_stalta_peak(key, st.net, st.sta, st.chan, ratio)
 
                 # ── Background auto-calibration (fires once per station) ──────
                 if not st._calib_done:
@@ -5164,7 +5203,7 @@ def _animate(_frame):
     if (now - _sta_lta_everyone_last_t[0]) >= STA_LTA_EVERYONE_COOLDOWN:
         _sle_triggered = [(k, st) for k, st in states.items()
                           if st.connected and st.last_ratio is not None
-                          and st.last_ratio >= TRIGGER_ON * st.thresh_mult]
+                          and st.last_ratio >= TRIGGER_ON * st.thresh_mult * 5]
         if _sle_triggered:
             _sta_lta_everyone_last_t[0] = now
             # Pick station with highest ratio

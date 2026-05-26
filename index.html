@@ -950,9 +950,9 @@ function wsKeyMatch(key) {
 
 function wsKeyMatchOrLock(key) {
   if (wsActiveKey) return key === wsActiveKey;
-  // Check preferred
+  // Only lock onto B054 — never fall back to a different station for waveform display
   const sta = key.split(".")[1] || "";
-  if (sta === WS_PREF_STATION || !wsActiveKey) {
+  if (sta === WS_PREF_STATION) {
     wsActiveKey = key;
     return true;
   }
@@ -1095,9 +1095,10 @@ function redraw() {
 }
 
 // ── WebSocket connection ──────────────────────────────────────────────────────
-let wsSocket   = null;
-let wsUsing    = false;    // true once first packet received
+let wsSocket        = null;
+let wsUsing         = false;    // true once first B054 packet received
 let wsReconnectTimer = null;
+let _irisStarted    = false;    // guard: start IRIS poll only once
 
 function wsConnect() {
   if (wsSocket) { try { wsSocket.close(); } catch {} }
@@ -1142,23 +1143,28 @@ function wsConnect() {
       seisStatus.textContent = "reconnecting…";
       seisStatus.className   = "";
     } else {
-      // Never received data — Python not running; fall back to IRIS REST
-      seisStatus.textContent = "no local monitor — using IRIS (delayed)";
-      seisStatus.className   = "";
-      fetchSeismogramIRIS();
-      setInterval(fetchSeismogramIRIS, 30000);
+      // Never received B054 data — fall back to IRIS REST (start only once)
+      if (!_irisStarted) {
+        _irisStarted = true;
+        seisStatus.textContent = "no local monitor — using IRIS (delayed)";
+        seisStatus.className   = "";
+        fetchSeismogramIRIS();
+        setInterval(fetchSeismogramIRIS, 30000);
+      }
       return;
     }
     wsReconnectTimer = setTimeout(wsConnect, 4000);
   };
 }
 
-// ── IRIS REST fallback (used only when Python monitor is not running) ─────────
+// ── IRIS REST fallback — always fetches PB.B054, populates ring buffer ────────
 async function fetchSeismogramIRIS() {
   const fmt = d => d.toISOString().slice(0,19);
+  // Request 60 min so the full buffer is filled; try with increasing delay offsets
+  const WIN_MIN = 60;
   for (const delayMin of [2, 5, 10, 20]) {
     const endTime   = new Date(Date.now() - delayMin * 60 * 1000);
-    const startTime = new Date(endTime.getTime() - seisMinutes * 60 * 1000);
+    const startTime = new Date(endTime.getTime() - WIN_MIN * 60 * 1000);
     const url = `https://service.iris.edu/irisws/timeseries/1/query` +
       `?net=PB&sta=B054&loc=--&cha=EHZ` +
       `&starttime=${fmt(startTime)}&endtime=${fmt(endTime)}&output=ascii1&demean=true`;
@@ -1172,14 +1178,16 @@ async function fetchSeismogramIRIS() {
       const vals = [];
       for (let i = 1; i < lines.length; i++) { const v = parseFloat(lines[i]); if (!isNaN(v)) vals.push(v); }
       if (vals.length < 2) continue;
-      drawWaveform(vals, startTime.getTime(), endTime.getTime());
-      seisStatus.textContent = `IRIS fallback (−${delayMin}m lag)`;
+      // Populate ring buffer so window-switching works
+      bufHead = 0; bufSize = 0;   // clear stale data before loading new batch
+      bufAppend(endTime.getTime() / 1000, sps, vals);
+      seisStatus.textContent = `PB.B054 — IRIS (−${delayMin}m lag)`;
       seisStatus.className   = "ok";
-      seisRange.textContent  = pdtStr(startTime) + " → " + pdtStr(endTime);
+      redraw();
       return;
     } catch {}
   }
-  seisStatus.textContent = "unavailable"; seisStatus.className = "err";
+  seisStatus.textContent = "PB.B054 — unavailable"; seisStatus.className = "err";
   drawWaveform(null, 0, 0);
 }
 
@@ -1429,10 +1437,25 @@ function mlChartDraw() {
   });
 }
 
+// ── Load persisted STA/LTA peaks from dashboard API on page load ─────────────
+async function loadStaltaPeaks() {
+  try {
+    const res = await fetch("https://dashboard.myearthquake.dpdns.org/api/stalta_peaks");
+    if (!res.ok) return;
+    const rows = await res.json();   // [{key, ts, stalta}, ...]
+    for (const r of rows) {
+      if (!staData[r.key]) staData[r.key] = { t_end: null, sr: null, stalta: null, staltaHist: [], lastSeen: 0 };
+      staData[r.key].staltaHist.push({ t: r.ts, v: r.stalta });
+    }
+    renderStaTable();
+  } catch {}
+}
+
 // Start — try WebSocket first, IRIS is automatic fallback via onclose
 drawWaveform(null, 0, 0);
 mlChartDraw();
 wsConnect();
+loadStaltaPeaks();
 </script>
 
 <!-- Monitor overlay removed — buttons open dashboard directly in a new tab -->
