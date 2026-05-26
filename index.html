@@ -1190,56 +1190,12 @@ let _monitorCurrentUrl = "";
 
 async function openMonitor(target) {
   // target: 'dashboard' or 'map'
-  const overlay  = document.getElementById("monitor-overlay");
-  const frame    = document.getElementById("monitor-frame");
-  const splash   = document.getElementById("monitor-splash");
-  const status   = document.getElementById("monitor-status");
-  const openBtn  = document.getElementById("monitor-open-btn");
-  const titleEl  = document.querySelector(".mt-title");
-
-  titleEl.textContent = target === 'map' ? '🗺 Live Seismicity Map' : '▲ SeisComP Live Monitor';
-  overlay.classList.add("open");
-  status.textContent = "CONNECTING…";
-  status.className   = "";
-  frame.style.display = "none";
-  splash.style.display = "flex";
-  document.getElementById("ms-msg").textContent = target === 'map' ? "Loading live seismicity map…" : "Loading SeisComP dashboard…";
-  document.getElementById("ms-sub").textContent = "Connecting…";
-
+  // Opens the URL directly in a new tab — iframe embedding is unreliable
+  // for a full Socket.IO app behind a Cloudflare tunnel.
   const urls = await fetchTunnelUrl();
   const url = (target === 'map') ? urls.map : urls.dash;
   _monitorCurrentUrl = url;
-
-  document.getElementById("ms-sub").textContent = url;
-
-  // Show "open in new tab" button immediately so user isn't stuck
-  openBtn.style.display = "";
-  openBtn.onclick = () => window.open(_monitorCurrentUrl, "_blank");
-
-  frame.src = url;
-
-  let loaded = false;
-  frame.onload = () => {
-    if (loaded) return; loaded = true;
-    status.textContent = "LIVE";
-    status.className   = "ok";
-    frame.style.display = "block";
-    splash.style.display = "none";
-  };
-  // Shorter timeout — show frame after 2s regardless (cross-origin onload unreliable)
-  setTimeout(() => {
-    if (loaded) return; loaded = true;
-    status.textContent = "LIVE";
-    status.className   = "ok";
-    frame.style.display = "block";
-    splash.style.display = "none";
-  }, 2000);
-
-  // Fallback: if frame still appears blank after 8s, nudge user to open in tab
-  setTimeout(() => {
-    const openHint = document.getElementById("monitor-open-hint");
-    if (openHint && frame.style.display === "block") openHint.style.display = "block";
-  }, 8000);
+  window.open(url, "_blank");
 }
 
 function closeMonitor() {
@@ -1408,27 +1364,7 @@ mlChartDraw();
 wsConnect();
 </script>
 
-<!-- SEISCOMP LIVE MONITOR OVERLAY -->
-<div id="monitor-overlay">
-  <div id="monitor-topbar">
-    <span class="mt-title">▲ SeisComP Live Monitor</span>
-    <span class="tb-sep">|</span>
-    <span id="monitor-status">CONNECTING…</span>
-    <span class="tb-sep">|</span>
-    <span style="color:var(--text-dim);font-size:0.6rem">Local seismic network — real-time STA/LTA &amp; waveforms</span>
-    <button id="monitor-open-btn" style="display:none" onclick="window.open(_monitorCurrentUrl,'_blank')">Open in new tab ↗</button>
-    <button id="monitor-close-btn" onclick="closeMonitor()">✕ Close</button>
-  </div>
-  <iframe id="monitor-frame" style="display:none" allowfullscreen allow="fullscreen"></iframe>
-  <div id="monitor-splash">
-    <div class="ms-icon">▲</div>
-    <div class="ms-msg" id="ms-msg">Loading SeisComP dashboard…</div>
-    <div class="ms-sub" id="ms-sub">Connecting…</div>
-    <div id="monitor-open-hint" style="display:none;margin-top:16px;font-size:0.65rem;color:var(--accent)">
-      If the map doesn't appear, click <strong>Open in new tab ↗</strong> above.
-    </div>
-  </div>
-</div>
+<!-- Monitor overlay removed — buttons open dashboard directly in a new tab -->
 
 </body>
 </html>
