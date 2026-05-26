@@ -652,6 +652,8 @@
           <th>Last Data</th>
           <th>Age</th>
           <th>SR (sps)</th>
+          <th>STA/LTA</th>
+          <th>Max 1h</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -700,6 +702,10 @@
     <div><span style="color:var(--text-dim)">b-value:</span> <span id="stat-bval" style="color:var(--accent)">—</span></div>
     <div><span style="color:var(--text-dim)">Max ML (7d):</span> <span id="stat-maxml" style="color:var(--accent)">—</span></div>
     <div><span style="color:var(--text-dim)">Aftershock P:</span> <span id="stat-asprob" style="color:var(--amber)">—</span></div>
+    <div><span style="color:var(--text-dim)">Peak STA/LTA (1h):</span> <span id="stat-peak-stalta" style="color:var(--green)">—</span></div>
+  </div>
+  <div style="font-size:0.61rem;color:var(--text-dim);padding-bottom:6px">
+    STA/LTA thresholds — <span style="color:var(--amber)">elevated ≥ 2.5</span> &nbsp;·&nbsp; <span style="color:var(--red)">triggered ≥ 8.0</span>
   </div>
 </div>
 
@@ -1116,15 +1122,15 @@ function wsConnect() {
     }
     if (msg.type === "station_status") { dashUpdateStation(msg); return; }
 
-    // ── Waveform data ────────────────────────────────────────────────────
+    // ── Waveform data (includes stalta field) ────────────────────────────
     if (!wsKeyMatchOrLock(msg.key)) {
-      dashUpdateStation({ key: msg.key, t_end: msg.t_end, sr: msg.sr });
+      dashUpdateStation({ key: msg.key, t_end: msg.t_end, sr: msg.sr, stalta: msg.stalta });
       return;
     }
     wsUsing = true;
     seisStatus.textContent = `LIVE — ${wsActiveKey}`;
     seisStatus.className   = "ok";
-    dashUpdateStation({ key: msg.key, t_end: msg.t_end, sr: msg.sr });
+    dashUpdateStation({ key: msg.key, t_end: msg.t_end, sr: msg.sr, stalta: msg.stalta });
     bufAppend(msg.t_end, msg.sr, msg.v);
     redraw();
   };
@@ -1234,40 +1240,98 @@ setInterval(checkDashboardHealth, 30000);
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeMonitor(); });
 
 // ── STATION STATUS DASHBOARD ─────────────────────────────────────────────────
-const staData = {};   // key → { t_end, sr, lastSeen }
+// STA/LTA thresholds (must match seedlink_alert.py)
+const STALTA_TRIG = 8.0;   // TRIGGER_ON
+const STALTA_WARN = 2.5;   // TRIGGER_OFF / elevated noise
+
+const staData = {};   // key → { t_end, sr, stalta, staltaHist, lastSeen }
+const STALTA_HIST_SEC = 3600;  // 1 hour of rolling history
 
 function dashUpdateStation(msg) {
   if (!msg.key) return;
-  staData[msg.key] = { t_end: msg.t_end, sr: msg.sr, lastSeen: Date.now() };
-  renderStaTable();
+  const now = Date.now() / 1000;
+  const prev = staData[msg.key] || { staltaHist: [] };
+  const hist = prev.staltaHist;
+
+  // Append new reading and prune entries older than 1 hour
+  if (msg.stalta != null) {
+    hist.push({ t: now, v: msg.stalta });
+    while (hist.length > 1 && (now - hist[0].t) > STALTA_HIST_SEC) hist.shift();
+  }
+
+  staData[msg.key] = {
+    t_end: msg.t_end, sr: msg.sr,
+    stalta: msg.stalta ?? prev.stalta ?? null,
+    staltaHist: hist,
+    lastSeen: Date.now(),
+  };
+}
+
+function _staltaCls(v) {
+  if (v == null) return "";
+  if (v >= STALTA_TRIG) return "sta-err";
+  if (v >= STALTA_WARN) return "sta-warn";
+  return "sta-ok";
+}
+
+function _staltaMax1h(hist) {
+  if (!hist || hist.length === 0) return null;
+  return Math.max(...hist.map(p => p.v));
 }
 
 function renderStaTable() {
   const tbody = document.getElementById("sta-tbody");
   if (!tbody) return;
   const now   = Date.now() / 1000;
-  const rows  = Object.entries(staData).sort((a,b) => a[0].localeCompare(b[0]));
+
+  // Sort: triggered first, then by stalta descending, then alphabetical
+  const rows = Object.entries(staData).sort(([, a], [, b]) => {
+    const av = a.stalta ?? -1, bv = b.stalta ?? -1;
+    return bv - av;
+  });
+
   tbody.innerHTML = rows.map(([key, d]) => {
     const ageSec = d.t_end ? (now - d.t_end) : null;
     const ageStr = ageSec == null ? "—"
                  : ageSec <   5  ? "● live"
                  : ageSec <  60  ? `${ageSec.toFixed(0)}s ago`
                  :                 `${(ageSec/60).toFixed(1)}m ago`;
-    const cls    = ageSec == null ? "" : ageSec < 10 ? "sta-ok" : ageSec < 120 ? "sta-warn" : "sta-err";
-    const tStr   = d.t_end ? new Date(d.t_end*1000).toISOString().slice(11,19) + " UTC" : "—";
-    const srStr  = d.sr    ? `${d.sr} sps` : "—";
+    const ageCls  = ageSec == null ? "" : ageSec < 10 ? "sta-ok" : ageSec < 120 ? "sta-warn" : "sta-err";
+    const tStr    = d.t_end ? new Date(d.t_end*1000).toISOString().slice(11,19) + " UTC" : "—";
+    const srStr   = d.sr    ? `${d.sr} sps` : "—";
+    const sVal    = d.stalta;
+    const sCls    = _staltaCls(sVal);
+    const sStr    = sVal != null ? sVal.toFixed(2) : "—";
+    const mx      = _staltaMax1h(d.staltaHist);
+    const mxCls   = _staltaCls(mx);
+    const mxStr   = mx  != null ? mx.toFixed(2)  : "—";
+    const status  = ageSec == null ? "—" : ageSec < 10 ? "LIVE" : ageSec < 120 ? "OK" : "STALE";
     return `<tr>
       <td>${key}</td>
       <td>${tStr}</td>
-      <td class="${cls}">${ageStr}</td>
+      <td class="${ageCls}">${ageStr}</td>
       <td>${srStr}</td>
-      <td class="${cls}">${ageSec == null ? "—" : ageSec < 10 ? "LIVE" : ageSec < 120 ? "OK" : "STALE"}</td>
+      <td class="${sCls}" style="font-variant-numeric:tabular-nums">${sStr}</td>
+      <td class="${mxCls}" style="font-variant-numeric:tabular-nums">${mxStr}</td>
+      <td class="${ageCls}">${status}</td>
     </tr>`;
-  }).join("") || `<tr><td colspan="5" style="color:var(--text-dim);text-align:center">Waiting for data…</td></tr>`;
+  }).join("") || `<tr><td colspan="7" style="color:var(--text-dim);text-align:center">Waiting for data…</td></tr>`;
+
   const staUpdateEl = document.getElementById("sta-update-time");
   if (staUpdateEl) staUpdateEl.textContent = "updated " + new Date().toISOString().slice(11,19) + " UTC";
+
+  // Update network-wide peak STA/LTA over 1h in stats panel
+  const allMax = Object.values(staData)
+    .map(d => _staltaMax1h(d.staltaHist))
+    .filter(v => v != null);
+  const netMax = allMax.length ? Math.max(...allMax) : null;
+  const netMaxEl = document.getElementById("stat-peak-stalta");
+  if (netMaxEl) {
+    netMaxEl.textContent = netMax != null ? netMax.toFixed(2) : "—";
+    netMaxEl.className   = _staltaCls(netMax);
+  }
 }
-setInterval(renderStaTable, 5000);   // refresh age column every 5s
+setInterval(renderStaTable, 2000);   // refresh every 2s (stalta changes fast)
 
 // ── EVENT HISTORY LOG ─────────────────────────────────────────────────────────
 const evtHistory = [];
