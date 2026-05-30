@@ -301,6 +301,8 @@ body {
           <div class="stat-row"><span class="stat-lbl">vs yesterday</span><span class="stat-val" id="vsyest-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Daylight rem.</span><span class="stat-val" id="dlpct-0">–</span></div>
         </div>
       </div>
     </div>
@@ -332,6 +334,8 @@ body {
           <div class="stat-row"><span class="stat-lbl">vs yesterday</span><span class="stat-val" id="vsyest-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Daylight rem.</span><span class="stat-val" id="dlpct-1">–</span></div>
         </div>
       </div>
     </div>
@@ -363,6 +367,8 @@ body {
           <div class="stat-row"><span class="stat-lbl">vs yesterday</span><span class="stat-val" id="vsyest-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Daylight rem.</span><span class="stat-val" id="dlpct-2">–</span></div>
         </div>
       </div>
     </div>
@@ -922,6 +928,40 @@ function tick(timestamp) {
       `${elevSign}${pos.elevation.toFixed(2)}°  (${(90 - Math.abs(pos.elevation)).toFixed(2)}° from zenith)`;
     document.getElementById(`azim-${i}`).textContent =
       `${pos.azimuth.toFixed(2)}°  ${compassDir(pos.azimuth)}`;
+
+    // Percentages (computed from localSec if st is available)
+    if (st) {
+      const localSec    = utcSec + offsetMin * 60;
+      const localSecDay = ((localSec % 86400) + 86400) % 86400;
+      const riseLocalSec = ((st.rise * 60 + offsetMin * 60) % 86400 + 86400) % 86400;
+      const setLocalSec  = ((st.set  * 60 + offsetMin * 60) % 86400 + 86400) % 86400;
+      const dayLenSec    = Math.round((st.set - st.rise) * 60);
+      const nightLenSec  = 86400 - dayLenSec;
+
+      // % of 24h day elapsed
+      const dayPct = (localSecDay / 86400 * 100).toFixed(2);
+
+      // daylight / nighttime remaining %
+      let dlPctText;
+      if (localSecDay >= riseLocalSec && localSecDay <= setLocalSec) {
+        const rem = setLocalSec - localSecDay;
+        const pct = (rem / dayLenSec * 100).toFixed(2);
+        dlPctText = `${pct}% daylight remaining`;
+      } else {
+        // seconds until next sunrise
+        const secToRise = localSecDay < riseLocalSec
+          ? riseLocalSec - localSecDay
+          : 86400 - localSecDay + riseLocalSec;
+        const pct = (secToRise / nightLenSec * 100).toFixed(2);
+        dlPctText = `${pct}% night remaining`;
+      }
+
+      document.getElementById(`daypct-${i}`).textContent = `${dayPct}% of 24h elapsed`;
+      document.getElementById(`dlpct-${i}`).textContent  = dlPctText;
+    } else {
+      document.getElementById(`daypct-${i}`).textContent = '–';
+      document.getElementById(`dlpct-${i}`).textContent  = '–';
+    }
   }
 
   requestAnimationFrame(tick);
