@@ -4,7 +4,7 @@ import io, math, threading, time, collections, os, warnings
 import numpy as np
 import mysql.connector
 from datetime import datetime, timezone
-from flask import Flask, render_template_string, jsonify, send_file, abort
+from flask import Flask, render_template_string, jsonify, send_file, abort, request
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from obspy.clients.seedlink.easyseedlink import EasySeedLinkClient
