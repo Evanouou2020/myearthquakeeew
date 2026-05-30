@@ -154,10 +154,11 @@ body {
   width:0%;
 }
 #prog-plane {
-  position:absolute; top:50%; transform:translateY(-50%);
-  font-size:13px; color:#fff; pointer-events:none;
-  filter:drop-shadow(0 0 6px #4a7fff);
+  position:absolute; top:50%; transform:translate(-50%,-50%);
+  font-size:16px; color:#4a7fff; pointer-events:none;
+  filter:drop-shadow(0 0 8px rgba(74,127,255,1)) drop-shadow(0 0 2px #fff);
   transition:left 0.5s ease;
+  z-index:2;
 }
 .prog-dist { display:flex; justify-content:space-between; margin-top:4px; }
 .prog-dist-val { font-size:0.68rem; color:#3a4050; font-variant-numeric:tabular-nums; }
@@ -168,9 +169,13 @@ body {
   padding:16px 18px; border-bottom:1px solid #181c28; text-align:center;
 }
 #timer-label { font-size:0.6rem; color:#30354a; letter-spacing:0.16em; text-transform:uppercase; margin-bottom:10px; }
+#timer-box {
+  background:#0d0f14; border:1px solid #252a38; border-radius:10px;
+  padding:16px 12px 14px; display:inline-block; width:100%;
+}
 #timer {
-  font-size:3.4rem; font-weight:200; color:#fff; letter-spacing:0.02em;
-  font-variant-numeric:tabular-nums; line-height:1;
+  font-size:2.5rem; font-weight:300; color:#fff; letter-spacing:0.04em;
+  font-variant-numeric:tabular-nums; line-height:1; white-space:nowrap;
 }
 #timer.warn { color:#e6a020; }
 #timer.crit { color:#e04040; }
@@ -333,6 +338,7 @@ body {
       <div>
         <div id="prog-pct-big">0%</div>
         <div id="prog-pct-sub">of route complete</div>
+        <div id="prog-one-pct" style="font-size:0.6rem;color:#30354a;margin-top:3px;letter-spacing:0.04em;font-variant-numeric:tabular-nums;"></div>
       </div>
       <div style="text-align:right">
         <div style="font-size:0.7rem;color:#5060a0;font-variant-numeric:tabular-nums" id="prog-dist-label">— km remaining</div>
@@ -355,8 +361,10 @@ body {
 
   <div id="timer-section">
     <div id="timer-label">TIME REMAINING</div>
-    <div id="timer">—h —m</div>
-    <div id="timer-sub">Estimating arrival…</div>
+    <div id="timer-box">
+      <div id="timer">—h ——m ——s</div>
+      <div id="timer-sub">Estimating arrival…</div>
+    </div>
   </div>
 
   <div id="stats-section">
@@ -421,7 +429,7 @@ let sessionStart=null, lastData=null, lastPollTime=null;
 let drLat=null, drLon=null, drHeading=null, drSpeedMs=null;
 let distRemainingKm=null, distTraveledKm=null, totalKm=null;
 let activeUnit='km', mapCentered=false;
-let activeTZ='origin';
+let activeTZ=null;
 
 // TZ options — built dynamically from flight data
 let tzOptions = {};
@@ -516,7 +524,7 @@ async function doSearch(){
 // ── Session ────────────────────────────────────────
 async function startSession(id,cs){
   fr24_id=id; callsign=cs; landed=false;
-  etaSeconds=null; lastData=null;
+  etaSeconds=null; lastData=null; activeTZ=null;
   drLat=drLon=drHeading=drSpeedMs=null; mapCentered=false;
   distRemainingKm=distTraveledKm=totalKm=null;
   sessionStart=Date.now();
@@ -594,12 +602,19 @@ function render(d){
     if(img.src!==d.photo_url) img.src=d.photo_url;
   }
 
-  // Build TZ options
+  // Build TZ options — dep TZ, arr TZ, UTC
   tzOptions={};
-  if(orig?.tz_name) tzOptions[orig.tz_name]=`${origCode} (${fmtTZAbbr(orig.tz_name)})`;
-  if(dest?.tz_name) tzOptions[dest.tz_name]=`${destCode} (${fmtTZAbbr(dest.tz_name)})`;
-  tzOptions['local']='Local';
+  if(orig?.tz_name){
+    const abbr=fmtTZAbbr(orig.tz_name);
+    tzOptions[orig.tz_name]=`${origCode} · ${abbr}`;
+  }
+  if(dest?.tz_name){
+    const abbr=fmtTZAbbr(dest.tz_name);
+    tzOptions[dest.tz_name]=`${destCode} · ${abbr}`;
+  }
   tzOptions['UTC']='UTC';
+  // Default active to origin TZ on first load
+  if(!activeTZ||activeTZ==='local') activeTZ=orig?.tz_name||'UTC';
   buildTZBar();
   updateTimes(d);
 
@@ -675,25 +690,19 @@ function buildTZBar(){
 }
 
 function resolveTZ(orig,dest){
-  if(activeTZ==='local') return undefined;
   if(activeTZ==='UTC') return 'UTC';
   if(activeTZ===orig?.tz_name) return orig.tz_name;
   if(activeTZ===dest?.tz_name) return dest.tz_name;
-  return activeTZ;
+  return activeTZ; // fallback
 }
 
 function updateTimes(d){
   const orig=d.origin, dest=d.destination;
-  const tzDep=orig?.tz_name||undefined;
-  const tzArr=dest?.tz_name||undefined;
-  const tzShow=resolveTZ(orig,dest);
-  const useDepTZ=(activeTZ==='local'||activeTZ==='UTC')?tzShow:tzDep;
-  const useArrTZ=(activeTZ==='local'||activeTZ==='UTC')?tzShow:tzArr;
-
-  document.getElementById('dep-sched').textContent=fmtTime(d.sched_dep, useDepTZ);
-  document.getElementById('dep-actual').textContent=fmtTime(d.actual_dep||d.sched_dep, useDepTZ);
-  document.getElementById('arr-sched').textContent=fmtTime(d.sched_arr, useArrTZ);
-  document.getElementById('arr-est').textContent=fmtTime(d.est_arr, useArrTZ);
+  const tz=resolveTZ(orig,dest);
+  document.getElementById('dep-sched').textContent=fmtTime(d.sched_dep, tz);
+  document.getElementById('dep-actual').textContent=fmtTime(d.actual_dep||d.sched_dep, tz);
+  document.getElementById('arr-sched').textContent=fmtTime(d.sched_arr, tz);
+  document.getElementById('arr-est').textContent=fmtTime(d.est_arr, tz);
 }
 
 // ── rAF loop — fluid progress + plane movement ─────
@@ -736,8 +745,19 @@ function rafLoop(){
 // ── Progress ───────────────────────────────────────
 function updateProgress(pct,traveled,remaining,total){
   document.getElementById('prog-fill').style.width=pct+'%';
-  document.getElementById('prog-plane').style.left=`calc(${pct}% - 7px)`;
-  document.getElementById('prog-pct-big').textContent=pct.toFixed(1)+'%';
+  document.getElementById('prog-plane').style.left=pct+'%';
+  document.getElementById('prog-pct-big').textContent=pct.toFixed(2)+'%';
+  // 1% = how long
+  const onePctEl=document.getElementById('prog-one-pct');
+  if(onePctEl && etaSeconds!=null && pct>0 && pct<100){
+    const secsPerPct=(etaSeconds/(100-pct));
+    const h=Math.floor(secsPerPct/3600),m=Math.floor((secsPerPct%3600)/60),s=Math.round(secsPerPct%60);
+    let label='1% ≈ ';
+    if(h>0) label+=`${h}h ${String(m).padStart(2,'0')}m`;
+    else if(m>0) label+=`${m}m ${String(s).padStart(2,'0')}s`;
+    else label+=`${s}s`;
+    onePctEl.textContent=label;
+  }
   document.getElementById('prog-dist-label').textContent=remaining?remaining.toFixed(2)+' km remaining':'';
   document.getElementById('prog-orig-code').textContent=lastData?.origin?.iata||lastData?.origin?.icao||'—';
   document.getElementById('prog-dest-code').textContent=lastData?.destination?.iata||lastData?.destination?.icao||'—';
