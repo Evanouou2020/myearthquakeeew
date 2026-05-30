@@ -269,6 +269,106 @@ body {
 .picker-city { font-size: 12px; color: #bbb; letter-spacing: 1px; }
 .picker-region { font-size: 9px; color: #383848; margin-top: 2px; letter-spacing: 1px; text-transform: uppercase; }
 .picker-time { font-size: 11px; color: #3a3a58; text-align: right; }
+
+/* ── Mobile tab bar ─────────────────────────────────────────────────────────── */
+#mob-tabbar {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 50;
+  background: rgba(4,4,12,0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.mob-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px 14px;
+  gap: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mob-tab-city {
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.28);
+  transition: color 0.2s;
+}
+.mob-tab-time {
+  font-family: var(--font);
+  font-size: 11px;
+  color: rgba(255,255,255,0.18);
+  transition: color 0.2s;
+  letter-spacing: 1px;
+}
+.mob-tab.active .mob-tab-city { color: rgba(255,255,255,0.85); }
+.mob-tab.active .mob-tab-time  { color: rgba(255,255,255,0.55); }
+.mob-tab-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  transition: background 0.2s;
+}
+.mob-tab.active .mob-tab-dot { background: rgba(255,255,255,0.7); }
+
+/* ── Mobile layout ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body { height: 100dvh; overflow: hidden; }
+
+  #clocks-container { position: relative; overflow: hidden; }
+
+  .clock-slot {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 28px 22px 100px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(40px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    border-right: none;
+  }
+  .clock-slot.mob-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+  .clock-slot.mob-prev {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  #mob-tabbar { display: flex; }
+
+  .edit-btn {
+    top: 12px; right: 12px;
+    padding: 7px 14px;
+    font-size: 9px;
+  }
+
+  .time-hms  { font-size: clamp(28px, 10vw, 40px) !important; }
+  .time-frac { font-size: clamp(17px, 6vw, 24px)  !important; }
+
+  .sun-arc-wrap svg { max-height: 80px; }
+
+  .stat-lbl  { font-size: 9px; }
+  .stat-val  { font-size: 11px; }
+
+  #picker-panel { width: 96vw; max-height: 85dvh; }
+  .picker-item  { padding: 14px 13px; } /* bigger tap targets */
+}
 </style>
 </head>
 <body>
@@ -373,6 +473,25 @@ body {
       </div>
     </div>
   </div>
+</div>
+
+<!-- Mobile tab bar -->
+<div id="mob-tabbar">
+  <button class="mob-tab active" id="mob-tab-0" onclick="switchMobTab(0)">
+    <div class="mob-tab-dot"></div>
+    <div class="mob-tab-city" id="mob-city-0">–</div>
+    <div class="mob-tab-time" id="mob-time-0">–</div>
+  </button>
+  <button class="mob-tab" id="mob-tab-1" onclick="switchMobTab(1)">
+    <div class="mob-tab-dot"></div>
+    <div class="mob-tab-city" id="mob-city-1">–</div>
+    <div class="mob-tab-time" id="mob-time-1">–</div>
+  </button>
+  <button class="mob-tab" id="mob-tab-2" onclick="switchMobTab(2)">
+    <div class="mob-tab-dot"></div>
+    <div class="mob-tab-city" id="mob-city-2">–</div>
+    <div class="mob-tab-time" id="mob-time-2">–</div>
+  </button>
 </div>
 
 <div id="picker-overlay" class="hidden">
@@ -771,8 +890,49 @@ function updateStaticLabels() {
     const z = zoneFor(selected[i]);
     document.getElementById(`city-${i}`).textContent   = z.city;
     document.getElementById(`region-${i}`).textContent = z.region;
+    const mobCity = document.getElementById(`mob-city-${i}`);
+    if (mobCity) mobCity.textContent = z.city;
   }
 }
+
+// ─── Mobile tab switching ─────────────────────────────────────────────────────
+let mobActive = 0;
+
+function switchMobTab(idx) {
+  const prev = mobActive;
+  mobActive = idx;
+  for (let i = 0; i < 3; i++) {
+    const slot = document.getElementById(`slot-${i}`);
+    const tab  = document.getElementById(`mob-tab-${i}`);
+    slot.classList.toggle('mob-visible', i === idx);
+    slot.classList.toggle('mob-prev',    i === prev && i !== idx);
+    tab.classList.toggle('active', i === idx);
+  }
+  // remove mob-prev after transition
+  setTimeout(() => {
+    for (let i = 0; i < 3; i++) {
+      document.getElementById(`slot-${i}`).classList.remove('mob-prev');
+    }
+  }, 350);
+}
+
+// Swipe gesture
+(function() {
+  let tx = 0;
+  const cont = document.getElementById('clocks-container');
+  cont.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+  cont.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 50) {
+      const next = dx < 0
+        ? Math.min(2, mobActive + 1)
+        : Math.max(0, mobActive - 1);
+      if (next !== mobActive) switchMobTab(next);
+    }
+  }, { passive: true });
+})();
+
+function isMobile() { return window.innerWidth <= 768; }
 
 // ─── Main render loop ─────────────────────────────────────────────────────────
 let sunCache = {};
@@ -965,11 +1125,22 @@ function tick(timestamp) {
     }
   }
 
+  // Update mobile tab times (every second is fine — throttle by ms)
+  if (now.getMilliseconds() < 60) {
+    for (let j = 0; j < 3; j++) {
+      const el = document.getElementById(`mob-time-${j}`);
+      if (el) el.textContent = fmtHMS(zoneFor(selected[j]).tz).format(now)
+        .replace(/^24/, '00').slice(0, 5); // HH:MM only
+    }
+  }
+
   requestAnimationFrame(tick);
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 updateStaticLabels();
+// Set slot 0 visible on mobile on load
+document.getElementById('slot-0').classList.add('mob-visible');
 requestAnimationFrame(tick);
 </script>
 </body>
