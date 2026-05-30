@@ -799,12 +799,17 @@ function fmt12(h,m){
 }
 
 // ── Notifications ──
+const notifSupported=typeof Notification!=='undefined';
 function notify(title,body){
-  if(Notification.permission==='granted'){
-    new Notification(title,{body,icon:'icon.jpg'});
-  }
+  try{
+    if(notifSupported&&Notification.permission==='granted'){
+      new Notification(title,{body,icon:'icon.jpg'});
+    }
+  }catch(e){}
 }
-if(Notification.permission==='default') Notification.requestPermission();
+try{
+  if(notifSupported&&Notification.permission==='default') Notification.requestPermission();
+}catch(e){}
 
 // ══════════════════════════════════════
 // LIVE CLOCK
