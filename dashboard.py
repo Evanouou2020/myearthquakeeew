@@ -2249,36 +2249,24 @@ def flight_detail(fr24_id):
     cached = _fr24_state_cache.get(fr24_id)
     if cached and time.time() - cached["ts"] < 10:
         return jsonify(cached["data"])
-    try:
-        all_flights = _fr24.get_flights()
-        flight_obj = next((f for f in all_flights if f.id == fr24_id), None)
-    except Exception:
-        flight_obj = None
 
-    # Use cached details if live lookup failed
+    # Fetch details directly by ID — no need to scan get_flights()
     old_details = (cached or {}).get("data", {}).get("_raw_details")
-
     try:
-        if flight_obj:
-            details = _fr24.get_flight_details(flight_obj)
-        elif old_details:
+        class _FakeF:
+            id = fr24_id
+        details = _fr24.get_flight_details(_FakeF())
+        if not details or "identification" not in details:
+            raise ValueError("empty response")
+    except Exception:
+        if old_details:
             details = old_details
         else:
-            return jsonify({"error": "Flight not found"}), 404
-    except Exception:
-        if old_details: details = old_details
-        else: return jsonify({"error": "Details unavailable"}), 404
+            return jsonify({"error": "Flight not found or data unavailable"}), 404
 
     trail = details.get("trail") or []
 
-    if flight_obj:
-        lat, lon = flight_obj.latitude, flight_obj.longitude
-        alt_ft = flight_obj.altitude
-        spd_kts = flight_obj.ground_speed
-        hdg = flight_obj.heading
-        vspd = getattr(flight_obj, "vertical_speed", 0) or 0
-        on_ground = flight_obj.on_ground
-    elif trail:
+    if trail:
         t = trail[0]
         lat, lon, alt_ft = t["lat"], t["lng"], t.get("alt", 0)
         spd_kts, hdg, vspd, on_ground = t.get("spd", 0), t.get("hd", 0), 0, False
@@ -2308,7 +2296,7 @@ def flight_detail(fr24_id):
 
     result = {
         "fr24_id": fr24_id,
-        "callsign": (getattr(flight_obj, "callsign", "") or "").strip(),
+        "callsign": (details.get("identification", {}).get("callsign") or "").strip(),
         "lat": lat, "lon": lon, "altitude_ft": alt_ft,
         "speed_kts": round(spd_kts, 1), "speed_ms": round(spd_kts * 0.514444, 2),
         "heading": round(hdg, 1), "vertical_rate_fpm": int(vspd),
