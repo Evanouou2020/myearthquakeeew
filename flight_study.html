@@ -480,7 +480,7 @@ function fmtTZAbbr(tzName){
 // ── Plane icon ─────────────────────────────────────
 function planeIcon(hdg){
   return L.divIcon({
-    html:`<div style="transform:rotate(${hdg}deg);font-size:18px;filter:drop-shadow(0 0 6px rgba(74,127,255,0.8))">✈</div>`,
+    html:`<div style="transform:rotate(${hdg-90}deg);font-size:18px;filter:drop-shadow(0 0 6px rgba(74,127,255,0.8))">✈</div>`,
     className:'', iconAnchor:[9,9]
   });
 }
@@ -516,7 +516,7 @@ async function doSearch(){
 // ── Session ────────────────────────────────────────
 async function startSession(id,cs){
   fr24_id=id; callsign=cs; landed=false;
-  etaMinutes=null; totalMinutes=null; lastData=null;
+  etaSeconds=null; lastData=null;
   drLat=drLon=drHeading=drSpeedMs=null; mapCentered=false;
   distRemainingKm=distTraveledKm=totalKm=null;
   sessionStart=Date.now();
@@ -603,11 +603,9 @@ function render(d){
   buildTZBar();
   updateTimes(d);
 
-  // ETA → minutes (stable, only update from server)
+  // ETA — sync to server value each poll
   if(d.eta_seconds!=null && d.eta_seconds>0){
-    const newMins=Math.round(d.eta_seconds/60);
-    if(totalMinutes==null) totalMinutes=newMins;
-    etaMinutes=newMins;
+    etaSeconds=d.eta_seconds;
     updateTimer();
   }
 
@@ -740,21 +738,24 @@ function updateProgress(pct,traveled,remaining,total){
   document.getElementById('prog-fill').style.width=pct+'%';
   document.getElementById('prog-plane').style.left=`calc(${pct}% - 7px)`;
   document.getElementById('prog-pct-big').textContent=pct.toFixed(1)+'%';
-  document.getElementById('prog-dist-label').textContent=remaining?remaining.toFixed(0)+' km remaining':'';
+  document.getElementById('prog-dist-label').textContent=remaining?remaining.toFixed(2)+' km remaining':'';
   document.getElementById('prog-orig-code').textContent=lastData?.origin?.iata||lastData?.origin?.icao||'—';
   document.getElementById('prog-dest-code').textContent=lastData?.destination?.iata||lastData?.destination?.icao||'—';
-  document.getElementById('prog-flown').textContent=traveled?traveled.toFixed(0)+' km flown':'';
-  document.getElementById('prog-total').textContent=total?total.toFixed(0)+' km total':'';
-  document.getElementById('prog-left').textContent=remaining?remaining.toFixed(0)+' km left':'';
+  document.getElementById('prog-flown').textContent=traveled?traveled.toFixed(2)+' km flown':'';
+  document.getElementById('prog-total').textContent=total?total.toFixed(2)+' km total':'';
+  document.getElementById('prog-left').textContent=remaining?remaining.toFixed(2)+' km left':'';
 }
 
-// ── Timer (minutes only, stable) ──────────────────
+// ── Timer (h m s, counts down per second) ─────────
+let etaSeconds=null;
+
 function updateTimer(){
-  if(etaMinutes==null) return;
-  const h=Math.floor(etaMinutes/60), m=etaMinutes%60;
+  if(etaSeconds==null) return;
+  const tot=Math.max(0,etaSeconds);
+  const h=Math.floor(tot/3600), m=Math.floor((tot%3600)/60), s=tot%60;
   const el=document.getElementById('timer');
-  el.textContent=`${h}h ${String(m).padStart(2,'0')}m`;
-  el.className=etaMinutes<30?'crit':etaMinutes<90?'warn':'';
+  el.textContent=`${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+  el.className=tot<1800?'crit':tot<5400?'warn':'';
 
   if(lastData?.est_arr){
     const arr=new Date(lastData.est_arr*1000);
@@ -764,12 +765,11 @@ function updateTimer(){
   }
 }
 
-// Decrement once per minute (stable, not per second)
 setInterval(()=>{
-  if(etaMinutes==null||etaMinutes<=0||landed) return;
-  etaMinutes--;
+  if(etaSeconds==null||etaSeconds<=0||landed) return;
+  etaSeconds--;
   updateTimer();
-}, 60000);
+}, 1000);
 
 // ── Distance panel ─────────────────────────────────
 function updateDistPanel(){
@@ -808,7 +808,7 @@ function handleLanded(cs){
 // ── Reset ──────────────────────────────────────────
 function resetToSearch(){
   clearInterval(pollTimer); if(rafId) cancelAnimationFrame(rafId);
-  fr24_id=null; landed=false; etaMinutes=null; totalMinutes=null; lastData=null;
+  fr24_id=null; landed=false; etaSeconds=null; lastData=null;
   document.getElementById('topbar').style.display='none';
   document.getElementById('panel').style.display='none';
   document.getElementById('landed').style.display='none';
