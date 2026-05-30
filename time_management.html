@@ -739,12 +739,21 @@ input[type="color"] {
 
   <!-- ── Time Blocks ── -->
   <div class="panel" id="timeblocks-panel">
-    <div class="panel-title">Time Blocks</div>
+    <div class="panel-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>Time Blocks</span>
+      <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+        <input class="tb-input" id="tb-view-date" type="date" style="width:140px;font-size:0.65rem">
+        <button class="btn primary" id="tb-set-btn" onclick="tbSetDate()" style="font-size:0.6rem;padding:4px 10px">Set Date</button>
+        <button class="btn" onclick="tbGoToday()" style="font-size:0.6rem;padding:4px 10px">Today</button>
+      </div>
+    </div>
+    <div style="font-size:0.6rem;color:var(--text-dim);margin-bottom:8px" id="tb-viewing-label"></div>
     <div class="tb-timeline" id="tb-timeline">
       <div class="tb-timeline-now" id="tb-now-line"></div>
     </div>
     <div class="tb-input-row">
       <input class="tb-input label-in" id="tb-name" type="text" placeholder="Block name…">
+      <input class="tb-input" id="tb-date" type="date" style="width:140px" title="Date">
       <input class="tb-input" id="tb-start" type="time" value="09:00" style="width:100px">
       <input class="tb-input" id="tb-end" type="time" value="10:00" style="width:100px">
       <input type="color" id="tb-color" value="#4aaff4" title="Color">
@@ -1145,6 +1154,38 @@ let timeBlocks=[];
 const TB_COLORS=['#4aaff4','#f48444','#4af884','#a44af4','#f4444a','#f4d44a','#4af4f4'];
 let tbColorIdx=0;
 
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function fmtDateLabel(s){
+  if(!s) return '';
+  const [y,m,d]=s.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  const today=todayStr();
+  const tom=new Date(); tom.setDate(tom.getDate()+1);
+  const tomStr=`${tom.getFullYear()}-${pad(tom.getMonth()+1)}-${pad(tom.getDate())}`;
+  if(s===today) return 'Today';
+  if(s===tomStr) return 'Tomorrow';
+  return dt.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+}
+
+let tbViewDate=todayStr();
+
+function tbSetDate(){
+  const v=document.getElementById('tb-view-date').value;
+  if(v){ tbViewDate=v; renderTimeBlocks(); }
+}
+function tbGoToday(){
+  tbViewDate=todayStr();
+  document.getElementById('tb-view-date').value=tbViewDate;
+  renderTimeBlocks();
+}
+
+// Init date inputs to today
+(()=>{
+  const t=todayStr();
+  document.getElementById('tb-date').value=t;
+  document.getElementById('tb-view-date').value=t;
+})();
+
 function loadTimeBlocks(){
   try{ timeBlocks=JSON.parse(localStorage.getItem('tm_blocks'))||[]; }catch(e){ timeBlocks=[]; }
 }
@@ -1153,13 +1194,17 @@ loadTimeBlocks();
 
 function addTimeBlock(){
   const name=document.getElementById('tb-name').value.trim()||'Block';
+  const date=document.getElementById('tb-date').value||todayStr();
   const start=document.getElementById('tb-start').value||'09:00';
   const end=document.getElementById('tb-end').value||'10:00';
   const color=document.getElementById('tb-color').value;
   if(timeToMin(end)<=timeToMin(start)){ alert('End must be after start'); return; }
-  timeBlocks.push({id:Date.now(),name,start,end,color});
-  timeBlocks.sort((a,b)=>timeToMin(a.start)-timeToMin(b.start));
+  timeBlocks.push({id:Date.now(),name,date,start,end,color});
+  timeBlocks.sort((a,b)=>a.date===b.date?timeToMin(a.start)-timeToMin(b.start):a.date.localeCompare(b.date));
   document.getElementById('tb-name').value='';
+  // Switch view to the added block's date
+  tbViewDate=date;
+  document.getElementById('tb-view-date').value=date;
   saveTimeBlocks();
   renderTimeBlocks();
 }
@@ -1170,18 +1215,26 @@ function deleteTimeBlock(id){
 }
 function renderTimeBlocks(){
   const now=new Date();
+  const today=todayStr();
+  const isToday=tbViewDate===today;
   const nowMin=now.getHours()*60+now.getMinutes();
+
+  // Filter to viewed date
+  const visible=timeBlocks.filter(b=>(b.date||today)===tbViewDate);
+
+  // Label
+  document.getElementById('tb-viewing-label').textContent=
+    `Viewing: ${fmtDateLabel(tbViewDate)}` + (visible.length?` · ${visible.length} block${visible.length===1?'':'s'}`:'');
 
   // Determine timeline range
   const wakeMin=timeToMin(document.getElementById('wake-time').value||'07:00');
   const sleepMin=timeToMin(document.getElementById('sleep-time').value||'23:00');
-  const rangeStart=Math.min(wakeMin, timeBlocks.length?timeToMin(timeBlocks[0].start):wakeMin);
-  const rangeEnd=Math.max(sleepMin, timeBlocks.length?timeToMin(timeBlocks[timeBlocks.length-1].end):sleepMin);
+  const rangeStart=Math.min(wakeMin, visible.length?timeToMin(visible[0].start):wakeMin);
+  const rangeEnd=Math.max(sleepMin, visible.length?timeToMin(visible[visible.length-1].end):sleepMin);
   const rangeLen=rangeEnd-rangeStart||1;
 
   // Timeline
   const timeline=document.getElementById('tb-timeline');
-  // Clear existing blocks but keep the now-line
   Array.from(timeline.children).forEach(c=>{ if(c.id!=='tb-now-line') c.remove(); });
 
   // Hour markers
@@ -1195,7 +1248,7 @@ function renderTimeBlocks(){
   }
 
   // Blocks
-  timeBlocks.forEach(b=>{
+  visible.forEach(b=>{
     const bs=timeToMin(b.start), be=timeToMin(b.end);
     const left=(bs-rangeStart)/rangeLen*100;
     const width=(be-bs)/rangeLen*100;
@@ -1210,17 +1263,23 @@ function renderTimeBlocks(){
     timeline.appendChild(el);
   });
 
-  // Now line
-  const nowPct=Math.min(100,Math.max(0,(nowMin-rangeStart)/rangeLen*100));
-  document.getElementById('tb-now-line').style.left=`calc(${nowPct}% - 1px)`;
+  // Now line — only show if viewing today
+  const nowLine=document.getElementById('tb-now-line');
+  if(isToday){
+    const nowPct=Math.min(100,Math.max(0,(nowMin-rangeStart)/rangeLen*100));
+    nowLine.style.left=`calc(${nowPct}% - 1px)`;
+    nowLine.style.display='block';
+  } else {
+    nowLine.style.display='none';
+  }
 
   // List
   const list=document.getElementById('tb-list');
-  if(!timeBlocks.length){ list.innerHTML='<div style="font-size:0.65rem;color:var(--text-faint);padding:8px 0">No time blocks yet.</div>'; return; }
-  list.innerHTML=timeBlocks.map(b=>{
+  if(!visible.length){ list.innerHTML='<div style="font-size:0.65rem;color:var(--text-faint);padding:8px 0">No blocks for this date.</div>'; return; }
+  list.innerHTML=visible.map(b=>{
     const bs=timeToMin(b.start), be=timeToMin(b.end);
-    const active=nowMin>=bs&&nowMin<be;
-    const done=nowMin>=be;
+    const active=isToday&&nowMin>=bs&&nowMin<be;
+    const done=isToday&&nowMin>=be;
     const dur=be-bs;
     const h=Math.floor(dur/60), m=dur%60;
     let status='upcoming', statusLabel='Upcoming';
