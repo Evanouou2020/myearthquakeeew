@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """SeisComP Live Dashboard — dashboard.py"""
-import io, math, threading, time, collections, os
+import io, math, threading, time, collections, os, warnings
 import numpy as np
 import mysql.connector
 from datetime import datetime, timezone
@@ -2173,6 +2173,167 @@ def api_event_list():
 def api_preliminary():
     """Recent preliminary real-time detections."""
     return jsonify(list(preliminary_events))
+
+# ── Flight Study API ───────────────────────────────────────────────────────────
+def _init_fr24():
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            from FlightRadarAPI import FlightRadar24API
+            return FlightRadar24API()
+    except Exception:
+        return None
+
+_fr24 = _init_fr24()
+_fr24_state_cache  = {}   # fr24_id -> {data, ts}
+_fr24_search_cache = {}   # query   -> {data, ts}
+
+def _fr24_haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = math.radians(lat2 - lat1); dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1))*math.cos(math.radians(lat2))*math.sin(dlon/2)**2
+    return R * 2 * math.asin(math.sqrt(a))
+
+def _fr24_bearing(lat1, lon1, lat2, lon2):
+    dlon = math.radians(lon2 - lon1)
+    lat1, lat2 = math.radians(lat1), math.radians(lat2)
+    x = math.sin(dlon)*math.cos(lat2)
+    y = math.cos(lat1)*math.sin(lat2) - math.sin(lat1)*math.cos(lat2)*math.cos(dlon)
+    return (math.degrees(math.atan2(x, y)) + 360) % 360
+
+def _ap_info(ap):
+    if not ap: return None
+    code = ap.get("code", {}); pos = ap.get("position", {}); reg = pos.get("region", {})
+    return {
+        "iata": code.get("iata",""), "icao": code.get("icao",""),
+        "name": ap.get("name",""), "city": reg.get("city",""),
+        "lat": pos.get("latitude"), "lon": pos.get("longitude"),
+        "tz_abbr": ap.get("timezone",{}).get("abbr",""),
+        "terminal": ap.get("info",{}).get("terminal"),
+        "gate": ap.get("info",{}).get("gate"),
+    }
+
+@app.route("/api/flight_search")
+def flight_search():
+    if not _fr24:
+        return jsonify({"error": "FlightRadarAPI not available"}), 503
+    q = request.args.get("q","").strip()
+    if len(q) < 2:
+        return jsonify({"error": "too short"}), 400
+    cached = _fr24_search_cache.get(q.upper())
+    if cached and time.time() - cached["ts"] < 8:
+        return jsonify({"results": cached["data"]})
+    try:
+        raw = _fr24.search(q)
+        live = raw.get("live", [])
+        results = []
+        for item in live[:10]:
+            d = item.get("detail", {})
+            results.append({
+                "fr24_id": item["id"], "callsign": d.get("callsign","").strip(),
+                "flight": d.get("flight",""), "aircraft": d.get("ac_type",""),
+                "registration": d.get("reg",""), "route": d.get("route",""),
+                "schd_from": d.get("schd_from",""), "schd_to": d.get("schd_to",""),
+                "lat": d.get("lat"), "lon": d.get("lon"),
+                "altitude_ft": 0, "speed_kts": 0, "on_ground": False,
+            })
+        _fr24_search_cache[q.upper()] = {"data": results, "ts": time.time()}
+        return jsonify({"results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/flight_detail/<fr24_id>")
+def flight_detail(fr24_id):
+    if not _fr24:
+        return jsonify({"error": "FlightRadarAPI not available"}), 503
+    cached = _fr24_state_cache.get(fr24_id)
+    if cached and time.time() - cached["ts"] < 10:
+        return jsonify(cached["data"])
+    try:
+        all_flights = _fr24.get_flights()
+        flight_obj = next((f for f in all_flights if f.id == fr24_id), None)
+    except Exception:
+        flight_obj = None
+
+    # Use cached details if live lookup failed
+    old_details = (cached or {}).get("data", {}).get("_raw_details")
+
+    try:
+        if flight_obj:
+            details = _fr24.get_flight_details(flight_obj)
+        elif old_details:
+            details = old_details
+        else:
+            return jsonify({"error": "Flight not found"}), 404
+    except Exception:
+        if old_details: details = old_details
+        else: return jsonify({"error": "Details unavailable"}), 404
+
+    trail = details.get("trail") or []
+
+    if flight_obj:
+        lat, lon = flight_obj.latitude, flight_obj.longitude
+        alt_ft = flight_obj.altitude
+        spd_kts = flight_obj.ground_speed
+        hdg = flight_obj.heading
+        vspd = getattr(flight_obj, "vertical_speed", 0) or 0
+        on_ground = flight_obj.on_ground
+    elif trail:
+        t = trail[0]
+        lat, lon, alt_ft = t["lat"], t["lng"], t.get("alt", 0)
+        spd_kts, hdg, vspd, on_ground = t.get("spd", 0), t.get("hd", 0), 0, False
+    else:
+        return jsonify({"error": "No position"}), 404
+
+    if (not hdg or hdg == 0) and len(trail) >= 2:
+        hdg = _fr24_bearing(trail[1]["lat"], trail[1]["lng"], trail[0]["lat"], trail[0]["lng"])
+
+    ap = details.get("airport", {})
+    origin = _ap_info(ap.get("origin"))
+    dest   = _ap_info(ap.get("destination"))
+
+    ti = details.get("time", {})
+    est_arr = ti.get("estimated", {}).get("arrival") or ti.get("other", {}).get("eta")
+    eta_seconds = max(0, int(est_arr - time.time())) if est_arr else None
+
+    aircraft_detail = details.get("aircraft", {})
+    images = aircraft_detail.get("images", {}).get("thumbnails", [])
+
+    dist_remaining_km = _fr24_haversine(lat, lon, dest["lat"], dest["lon"]) if dest and dest.get("lat") else None
+    dist_traveled_km = sum(
+        _fr24_haversine(trail[i]["lat"], trail[i]["lng"], trail[i+1]["lat"], trail[i+1]["lng"])
+        for i in range(len(trail)-1)
+    ) if len(trail) > 1 else 0.0
+    total_km = dist_traveled_km + (dist_remaining_km or 0)
+
+    result = {
+        "fr24_id": fr24_id,
+        "callsign": (getattr(flight_obj, "callsign", "") or "").strip(),
+        "lat": lat, "lon": lon, "altitude_ft": alt_ft,
+        "speed_kts": round(spd_kts, 1), "speed_ms": round(spd_kts * 0.514444, 2),
+        "heading": round(hdg, 1), "vertical_rate_fpm": int(vspd),
+        "on_ground": on_ground,
+        "registration": aircraft_detail.get("registration", ""),
+        "aircraft_model": aircraft_detail.get("model", {}).get("text", ""),
+        "airline_name": details.get("airline", {}).get("name", ""),
+        "airline_iata": (details.get("airline", {}).get("code") or {}).get("iata", "") if isinstance(details.get("airline", {}).get("code"), dict) else "",
+        "photo_url": images[0]["src"] if images else None,
+        "status": details.get("status", {}).get("text", ""),
+        "origin": origin, "destination": dest,
+        "sched_dep": ti.get("scheduled", {}).get("departure"),
+        "sched_arr": ti.get("scheduled", {}).get("arrival"),
+        "actual_dep": ti.get("real", {}).get("departure"),
+        "est_arr": est_arr, "eta_seconds": eta_seconds,
+        "server_time": int(time.time()),
+        "dist_traveled_km": round(dist_traveled_km, 2),
+        "dist_remaining_km": round(dist_remaining_km, 2) if dist_remaining_km is not None else None,
+        "total_km": round(total_km, 2),
+        "progress_pct": round(dist_traveled_km / total_km * 100) if total_km > 0 else None,
+        "waypoints": [[t["lat"], t["lng"]] for t in reversed(trail)],
+        "_raw_details": details,  # cached for stale fallback
+    }
+    _fr24_state_cache[fr24_id] = {"data": result, "ts": time.time()}
+    return jsonify({k: v for k, v in result.items() if k != "_raw_details"})
 
 @app.route("/livemap")
 def livemap():

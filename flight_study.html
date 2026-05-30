@@ -325,6 +325,9 @@ body {
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+// ── API base — points to the always-on dashboard server ───────
+const API = 'https://dashboard.myearthquake.dpdns.org';
+
 // ── Map ────────────────────────────────────────────────────────
 const map = L.map('map', { zoomControl:true, attributionControl:false });
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:19 }).addTo(map);
@@ -386,7 +389,7 @@ async function doSearch() {
   statusEl.innerHTML = '<span class="spinner"></span>Scanning live traffic…';
   resultsEl.innerHTML = '';
   try {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+    const res = await fetch(`${API}/api/flight_search?q=${encodeURIComponent(q)}`);
     const d = await res.json();
     statusEl.textContent = '';
     if (!d.results?.length) { statusEl.textContent = 'No airborne flights found.'; return; }
@@ -430,7 +433,7 @@ async function startSession(id, cs) {
 async function poll() {
   if (!fr24_id) return;
   try {
-    const res = await fetch(`/api/flight/${fr24_id}`);
+    const res = await fetch(`${API}/api/flight_detail/${fr24_id}`);
     if (!res.ok) return;
     const d = await res.json();
     if (d.error) return;
