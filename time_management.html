@@ -835,11 +835,18 @@ function updateDayProgress(now){
   const wakeStr=document.getElementById('wake-time').value||'07:00';
   const sleepStr=document.getElementById('sleep-time').value||'23:00';
   const wakeMin=timeToMin(wakeStr);
-  const sleepMin=timeToMin(sleepStr);
+  let sleepMin=timeToMin(sleepStr);
+  // Overnight support: if sleep is before or equal to wake, add 24h
+  const overnight=sleepMin<=wakeMin;
+  if(overnight) sleepMin+=24*60;
   const dayLen=sleepMin-wakeMin;
   if(dayLen<=0) return;
 
-  const nowMin=now.getHours()*60+now.getMinutes()+now.getSeconds()/60;
+  // nowMin: minutes since midnight; if overnight and we're in the early hours (before wake),
+  // add 24h so it falls in the right position after midnight
+  let nowMin=now.getHours()*60+now.getMinutes()+now.getSeconds()/60;
+  if(overnight && nowMin<wakeMin) nowMin+=24*60;
+
   const elapsed=Math.max(0,Math.min(dayLen,nowMin-wakeMin));
   const remain=Math.max(0,dayLen-elapsed);
   const pctDone=elapsed/dayLen;
@@ -854,12 +861,14 @@ function updateDayProgress(now){
   const remH=Math.floor(remain/60), remM=Math.round(remain%60);
   document.getElementById('time-elapsed').textContent=`${elH}h ${elM}m elapsed`;
   document.getElementById('time-remaining').textContent=`${remH}h ${remM}m remaining`;
-  document.getElementById('day-length').textContent=`${Math.floor(dayLen/60)}h ${dayLen%60}m`;
-  const midMin=wakeMin+dayLen/2;
-  document.getElementById('day-midpoint').textContent=minToHHMM(Math.round(midMin));
+  const dayLenH=Math.floor(dayLen/60), dayLenM=dayLen%60;
+  document.getElementById('day-length').textContent=
+    `${dayLenH}h ${dayLenM}m${overnight?' (+1 day)':''}`;
+  const midRaw=(wakeMin+dayLen/2)%(24*60);
+  document.getElementById('day-midpoint').textContent=minToHHMM(Math.round(midRaw));
   document.getElementById('tl-wake-lbl').textContent=wakeStr;
-  document.getElementById('tl-sleep-lbl').textContent=sleepStr;
-  document.getElementById('day-timeline-label').textContent=sleepStr;
+  document.getElementById('tl-sleep-lbl').textContent=sleepStr+(overnight?' +1d':'');
+  document.getElementById('day-timeline-label').textContent=sleepStr+(overnight?' +1d':'');
   document.getElementById('day-timeline-left-label').textContent=wakeStr;
 
   const donePct=Math.min(100,pctDone*100);
