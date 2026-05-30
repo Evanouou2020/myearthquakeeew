@@ -256,6 +256,28 @@ body {
   background:rgba(10,12,18,0.92) !important; border:1px solid #252a38 !important;
   color:#9098b0 !important; font-size:0.7rem; font-family:inherit; box-shadow:none; border-radius:5px;
 }
+
+/* ── Mobile ── */
+@media (max-width: 600px) {
+  body { overflow:auto; }
+  #map { position:fixed; top:44px; left:0; right:0; height:38vh; bottom:auto; z-index:0; }
+  #panel {
+    position:relative; left:auto; top:auto; bottom:auto;
+    width:100%; margin-top:calc(38vh + 44px);
+    border-right:none; border-top:1px solid rgba(255,255,255,0.07);
+    max-height:none; overflow-y:visible; display:block !important;
+  }
+  #topbar { padding:0 10px; gap:7px; }
+  #topbar-airline { display:none; }
+  .tb-sep:nth-child(4) { display:none; }
+  #new-btn { padding:4px 9px; font-size:0.66rem; }
+  .ap-code { font-size:1.7rem; }
+  #timer { font-size:1.9rem; }
+  #stats-section { grid-template-columns:1fr 1fr; }
+  .dist-sub-grid { grid-template-columns:1fr 1fr; }
+  #photo-wrap { height:90px; }
+  .leaflet-control-zoom { display:none !important; }
+}
 </style>
 </head>
 <body>
@@ -485,12 +507,14 @@ function fmtTZAbbr(tzName){
   } catch(e){ return ''; }
 }
 
-// ── Plane icon ─────────────────────────────────────
+// ── Plane icon — SVG points UP (north=0°), rotate by heading ──
 function planeIcon(hdg){
-  return L.divIcon({
-    html:`<div style="transform:rotate(${hdg-90}deg);font-size:18px;filter:drop-shadow(0 0 6px rgba(74,127,255,0.8))">✈</div>`,
-    className:'', iconAnchor:[9,9]
-  });
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"
+    style="transform:rotate(${hdg}deg);filter:drop-shadow(0 0 4px #4a7fff) drop-shadow(0 0 8px rgba(74,127,255,0.6))">
+    <polygon points="14,2 18,22 14,19 10,22" fill="#ffffff" stroke="#4a7fff" stroke-width="1.5"/>
+    <polygon points="6,14 14,10 22,14 14,13" fill="#4a7fff" opacity="0.85"/>
+  </svg>`;
+  return L.divIcon({html:svg, className:'', iconAnchor:[14,14]});
 }
 
 // ── Search ─────────────────────────────────────────
@@ -602,8 +626,10 @@ function render(d){
     if(img.src!==d.photo_url) img.src=d.photo_url;
   }
 
-  // Build TZ options — dep TZ, arr TZ, UTC
+  // Build TZ options — Local, dep TZ, arr TZ, UTC
   tzOptions={};
+  const localAbbr=fmtTZAbbr(Intl.DateTimeFormat().resolvedOptions().timeZone)||'Local';
+  tzOptions['local']=`Local · ${localAbbr}`;
   if(orig?.tz_name){
     const abbr=fmtTZAbbr(orig.tz_name);
     tzOptions[orig.tz_name]=`${origCode} · ${abbr}`;
@@ -614,7 +640,7 @@ function render(d){
   }
   tzOptions['UTC']='UTC';
   // Default active to origin TZ on first load
-  if(!activeTZ||activeTZ==='local') activeTZ=orig?.tz_name||'UTC';
+  if(!activeTZ) activeTZ=orig?.tz_name||'UTC';
   buildTZBar();
   updateTimes(d);
 
@@ -690,10 +716,11 @@ function buildTZBar(){
 }
 
 function resolveTZ(orig,dest){
+  if(activeTZ==='local') return undefined; // browser local
   if(activeTZ==='UTC') return 'UTC';
   if(activeTZ===orig?.tz_name) return orig.tz_name;
   if(activeTZ===dest?.tz_name) return dest.tz_name;
-  return activeTZ; // fallback
+  return activeTZ;
 }
 
 function updateTimes(d){
