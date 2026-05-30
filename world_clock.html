@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Clock</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --font: 'SF Mono','Fira Code','Consolas',monospace; }
+
+body {
+  background: #000;
+  font-family: var(--font);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#clocks-container {
+  display: flex;
+  flex: 1;
+  height: 100vh;
+}
+
+.clock-slot {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 36px 28px 32px;
+  border-right: 1px solid rgba(255,255,255,0.04);
+  transition: background 4s ease;
+}
+.clock-slot:last-child { border-right: none; }
+
+/* Sky gradient layers */
+.sky-bg {
+  position: absolute;
+  inset: 0;
+  transition: opacity 3s ease;
+  pointer-events: none;
+}
+
+.edit-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.35);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 0.2s;
+  z-index: 2;
+}
+.edit-btn:hover {
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.8);
+  border-color: rgba(255,255,255,0.25);
+}
+
+.slot-content {
+  position: relative;
+  z-index: 2;
+}
+
+.city-label {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 3px;
+}
+.region-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.2);
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+
+.time-display {
+  line-height: 1;
+  margin-bottom: 10px;
+}
+.time-hms {
+  font-size: clamp(22px, 3.2vw, 42px);
+  font-weight: 200;
+  color: rgba(255,255,255,0.92);
+  letter-spacing: 2px;
+}
+.time-dot { color: rgba(255,255,255,0.35); }
+.time-frac {
+  font-size: clamp(14px, 2vw, 26px);
+  font-weight: 200;
+  color: rgba(255,255,255,0.28);
+  letter-spacing: 1px;
+}
+
+.date-display {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.28);
+  margin-bottom: 28px;
+  text-transform: uppercase;
+}
+
+/* Sun arc */
+.sun-arc-wrap {
+  margin-bottom: 16px;
+}
+.sun-arc-wrap svg { width: 100%; height: auto; overflow: visible; }
+
+.sun-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+.sun-time-label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.3);
+}
+.sun-status-label {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.35);
+  text-align: center;
+  text-transform: uppercase;
+}
+.progress-wrap {
+  height: 2px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 1px;
+  margin: 10px 0 4px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: rgba(255,255,255,0.3);
+  border-radius: 1px;
+}
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding-top: 10px;
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.stat-lbl {
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.18);
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.stat-val {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.5px;
+  text-align: right;
+}
+.stat-val.hi { color: rgba(255,255,255,0.6); }
+
+/* Picker overlay */
+#picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+#picker-overlay.hidden { display: none; }
+
+#picker-panel {
+  background: #0b0b16;
+  border: 1px solid #1c1c2e;
+  border-radius: 14px;
+  width: min(560px, 92vw);
+  max-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+}
+
+#picker-header {
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid #151525;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#picker-title {
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #444;
+}
+#picker-close {
+  background: none;
+  border: none;
+  color: #333;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  font-family: var(--font);
+  transition: color 0.2s;
+}
+#picker-close:hover { color: #888; }
+
+#picker-search-wrap {
+  padding: 14px 22px;
+  border-bottom: 1px solid #10101e;
+}
+#picker-search {
+  width: 100%;
+  background: #060610;
+  border: 1px solid #181828;
+  border-radius: 7px;
+  padding: 10px 14px;
+  color: #bbb;
+  font-family: var(--font);
+  font-size: 12px;
+  outline: none;
+  letter-spacing: 1px;
+}
+#picker-search:focus { border-color: #2a2a4a; }
+#picker-search::placeholder { color: #282838; }
+
+#picker-list {
+  overflow-y: auto;
+  padding: 10px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #1a1a2a transparent;
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.picker-item:hover { background: #10101e; border-color: #1a1a30; }
+.picker-left { }
+.picker-city { font-size: 12px; color: #bbb; letter-spacing: 1px; }
+.picker-region { font-size: 9px; color: #383848; margin-top: 2px; letter-spacing: 1px; text-transform: uppercase; }
+.picker-time { font-size: 11px; color: #3a3a58; text-align: right; }
+</style>
+</head>
+<body>
+
+<div id="clocks-container">
+  <div class="clock-slot" id="slot-0">
+    <div class="sky-bg" id="bg-0"></div>
+    <button class="edit-btn" onclick="openPicker(0)">CHANGE</button>
+    <div class="slot-content">
+      <div class="city-label" id="city-0">–</div>
+      <div class="region-label" id="region-0">–</div>
+      <div class="time-display">
+        <span class="time-hms" id="hms-0">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-0">0000</span>
+      </div>
+      <div class="date-display" id="date-0">–</div>
+      <div class="sun-arc-wrap" id="arc-wrap-0">
+        <svg viewBox="0 0 200 110" id="arc-svg-0"></svg>
+        <div class="sun-row">
+          <div class="sun-time-label" id="sr-label-0">–</div>
+          <div class="sun-status-label" id="sun-status-0">–</div>
+          <div class="sun-time-label" id="ss-label-0">–</div>
+        </div>
+        <div class="progress-wrap"><div class="progress-fill" id="progress-0" style="width:0%"></div></div>
+        <div class="stats-list">
+          <div class="stat-row"><span class="stat-lbl">Remaining</span><span class="stat-val hi" id="remaining-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Golden hour</span><span class="stat-val" id="golden-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">vs yesterday</span><span class="stat-val" id="vsyest-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-0">–</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="clock-slot" id="slot-1">
+    <div class="sky-bg" id="bg-1"></div>
+    <button class="edit-btn" onclick="openPicker(1)">CHANGE</button>
+    <div class="slot-content">
+      <div class="city-label" id="city-1">–</div>
+      <div class="region-label" id="region-1">–</div>
+      <div class="time-display">
+        <span class="time-hms" id="hms-1">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-1">0000</span>
+      </div>
+      <div class="date-display" id="date-1">–</div>
+      <div class="sun-arc-wrap" id="arc-wrap-1">
+        <svg viewBox="0 0 200 110" id="arc-svg-1"></svg>
+        <div class="sun-row">
+          <div class="sun-time-label" id="sr-label-1">–</div>
+          <div class="sun-status-label" id="sun-status-1">–</div>
+          <div class="sun-time-label" id="ss-label-1">–</div>
+        </div>
+        <div class="progress-wrap"><div class="progress-fill" id="progress-1" style="width:0%"></div></div>
+        <div class="stats-list">
+          <div class="stat-row"><span class="stat-lbl">Remaining</span><span class="stat-val hi" id="remaining-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Golden hour</span><span class="stat-val" id="golden-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">vs yesterday</span><span class="stat-val" id="vsyest-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-1">–</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="clock-slot" id="slot-2">
+    <div class="sky-bg" id="bg-2"></div>
+    <button class="edit-btn" onclick="openPicker(2)">CHANGE</button>
+    <div class="slot-content">
+      <div class="city-label" id="city-2">–</div>
+      <div class="region-label" id="region-2">–</div>
+      <div class="time-display">
+        <span class="time-hms" id="hms-2">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-2">0000</span>
+      </div>
+      <div class="date-display" id="date-2">–</div>
+      <div class="sun-arc-wrap" id="arc-wrap-2">
+        <svg viewBox="0 0 200 110" id="arc-svg-2"></svg>
+        <div class="sun-row">
+          <div class="sun-time-label" id="sr-label-2">–</div>
+          <div class="sun-status-label" id="sun-status-2">–</div>
+          <div class="sun-time-label" id="ss-label-2">–</div>
+        </div>
+        <div class="progress-wrap"><div class="progress-fill" id="progress-2" style="width:0%"></div></div>
+        <div class="stats-list">
+          <div class="stat-row"><span class="stat-lbl">Remaining</span><span class="stat-val hi" id="remaining-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Golden hour</span><span class="stat-val" id="golden-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">vs yesterday</span><span class="stat-val" id="vsyest-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-2">–</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="picker-overlay" class="hidden">
+  <div id="picker-panel">
+    <div id="picker-header">
+      <span id="picker-title">Select timezone</span>
+      <button id="picker-close" onclick="closePicker()">✕</button>
+    </div>
+    <div id="picker-search-wrap">
+      <input id="picker-search" placeholder="Search city or region…" oninput="filterPicker(this.value)" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="picker-list"></div>
+  </div>
+</div>
+
+<script>
+// ─── Zone data ───────────────────────────────────────────────────────────────
+const ZONES = [
+  { city:'Los Angeles',  region:'United States — Pacific',    tz:'America/Los_Angeles', lat:34.05,  lon:-118.25 },
+  { city:'Denver',       region:'United States — Mountain',   tz:'America/Denver',      lat:39.74,  lon:-104.99 },
+  { city:'Chicago',      region:'United States — Central',    tz:'America/Chicago',     lat:41.88,  lon:-87.63  },
+  { city:'New York',     region:'United States — Eastern',    tz:'America/New_York',    lat:40.71,  lon:-74.01  },
+  { city:'Anchorage',    region:'United States — Alaska',     tz:'America/Anchorage',   lat:61.22,  lon:-149.90 },
+  { city:'Honolulu',     region:'United States — Hawaii',     tz:'Pacific/Honolulu',    lat:21.31,  lon:-157.86 },
+  { city:'Toronto',      region:'Canada — Eastern',           tz:'America/Toronto',     lat:43.65,  lon:-79.38  },
+  { city:'Vancouver',    region:'Canada — Pacific',           tz:'America/Vancouver',   lat:49.25,  lon:-123.12 },
+  { city:'Mexico City',  region:'Mexico',                     tz:'America/Mexico_City', lat:19.43,  lon:-99.13  },
+  { city:'São Paulo',    region:'Brazil',                     tz:'America/Sao_Paulo',   lat:-23.55, lon:-46.63  },
+  { city:'Buenos Aires', region:'Argentina',                  tz:'America/Argentina/Buenos_Aires', lat:-34.60, lon:-58.38 },
+  { city:'London',       region:'United Kingdom',             tz:'Europe/London',       lat:51.51,  lon:-0.13   },
+  { city:'Reykjavík',    region:'Iceland',                    tz:'Atlantic/Reykjavik',  lat:64.13,  lon:-21.94  },
+  { city:'Paris',        region:'France — Central Europe',    tz:'Europe/Paris',        lat:48.85,  lon:2.35    },
+  { city:'Berlin',       region:'Germany',                    tz:'Europe/Berlin',       lat:52.52,  lon:13.41   },
+  { city:'Rome',         region:'Italy',                      tz:'Europe/Rome',         lat:41.90,  lon:12.50   },
+  { city:'Stockholm',    region:'Sweden',                     tz:'Europe/Stockholm',    lat:59.33,  lon:18.07   },
+  { city:'Helsinki',     region:'Finland',                    tz:'Europe/Helsinki',     lat:60.17,  lon:24.94   },
+  { city:'Athens',       region:'Greece',                     tz:'Europe/Athens',       lat:37.98,  lon:23.73   },
+  { city:'Cairo',        region:'Egypt',                      tz:'Africa/Cairo',        lat:30.04,  lon:31.24   },
+  { city:'Nairobi',      region:'Kenya',                      tz:'Africa/Nairobi',      lat:-1.29,  lon:36.82   },
+  { city:'Lagos',        region:'Nigeria',                    tz:'Africa/Lagos',        lat:6.52,   lon:3.38    },
+  { city:'Johannesburg', region:'South Africa',               tz:'Africa/Johannesburg', lat:-26.20, lon:28.05   },
+  { city:'Moscow',       region:'Russia',                     tz:'Europe/Moscow',       lat:55.75,  lon:37.62   },
+  { city:'Istanbul',     region:'Turkey',                     tz:'Europe/Istanbul',     lat:41.01,  lon:28.95   },
+  { city:'Riyadh',       region:'Saudi Arabia',               tz:'Asia/Riyadh',         lat:24.69,  lon:46.72   },
+  { city:'Dubai',        region:'UAE',                        tz:'Asia/Dubai',          lat:25.20,  lon:55.27   },
+  { city:'Karachi',      region:'Pakistan',                   tz:'Asia/Karachi',        lat:24.86,  lon:67.01   },
+  { city:'Mumbai',       region:'India',                      tz:'Asia/Kolkata',        lat:19.08,  lon:72.88   },
+  { city:'Delhi',        region:'India',                      tz:'Asia/Kolkata',        lat:28.61,  lon:77.21   },
+  { city:'Colombo',      region:'Sri Lanka',                  tz:'Asia/Colombo',        lat:6.93,   lon:79.85   },
+  { city:'Dhaka',        region:'Bangladesh',                 tz:'Asia/Dhaka',          lat:23.72,  lon:90.41   },
+  { city:'Yangon',       region:'Myanmar',                    tz:'Asia/Rangoon',        lat:16.87,  lon:96.15   },
+  { city:'Bangkok',      region:'Thailand',                   tz:'Asia/Bangkok',        lat:13.75,  lon:100.52  },
+  { city:'Ho Chi Minh',  region:'Vietnam',                    tz:'Asia/Ho_Chi_Minh',    lat:10.82,  lon:106.63  },
+  { city:'Singapore',    region:'Singapore',                  tz:'Asia/Singapore',      lat:1.35,   lon:103.82  },
+  { city:'Kuala Lumpur', region:'Malaysia',                   tz:'Asia/Kuala_Lumpur',   lat:3.14,   lon:101.69  },
+  { city:'Jakarta',        region:'Indonesia',                    tz:'Asia/Jakarta',          lat:-6.21,  lon:106.85  },
+  { city:'Bali',           region:'Indonesia',                    tz:'Asia/Makassar',         lat:-8.67,  lon:115.21  },
+  { city:'Makassar',       region:'Indonesia — Central',          tz:'Asia/Makassar',         lat:-5.13,  lon:119.41  },
+  { city:'Cebu City',      region:'Philippines',                  tz:'Asia/Manila',           lat:10.32,  lon:123.90  },
+  { city:'Manila',         region:'Philippines',                  tz:'Asia/Manila',           lat:14.60,  lon:120.98  },
+  { city:'Davao',          region:'Philippines — Mindanao',       tz:'Asia/Manila',           lat:7.07,   lon:125.61  },
+  { city:'Shanghai',       region:'China',                        tz:'Asia/Shanghai',         lat:31.23,  lon:121.47  },
+  { city:'Beijing',        region:'China',                        tz:'Asia/Shanghai',         lat:39.91,  lon:116.39  },
+  { city:'Chengdu',        region:'China — Sichuan',              tz:'Asia/Shanghai',         lat:30.57,  lon:104.07  },
+  { city:'Shenzhen',       region:'China — Guangdong',            tz:'Asia/Shanghai',         lat:22.54,  lon:114.06  },
+  { city:'Hong Kong',      region:'Hong Kong',                    tz:'Asia/Hong_Kong',        lat:22.32,  lon:114.17  },
+  { city:'Macau',          region:'Macau SAR',                    tz:'Asia/Macau',            lat:22.20,  lon:113.55  },
+  { city:'Taipei',         region:'Taiwan',                       tz:'Asia/Taipei',           lat:25.04,  lon:121.57  },
+  { city:'Seoul',          region:'South Korea',                  tz:'Asia/Seoul',            lat:37.57,  lon:126.98  },
+  { city:'Busan',          region:'South Korea',                  tz:'Asia/Seoul',            lat:35.10,  lon:129.04  },
+  { city:'Pyongyang',      region:'North Korea',                  tz:'Asia/Pyongyang',        lat:39.02,  lon:125.75  },
+  { city:'Tokyo',          region:'Japan',                        tz:'Asia/Tokyo',            lat:35.69,  lon:139.69  },
+  { city:'Osaka',          region:'Japan',                        tz:'Asia/Tokyo',            lat:34.69,  lon:135.50  },
+  { city:'Sapporo',        region:'Japan — Hokkaido',             tz:'Asia/Tokyo',            lat:43.06,  lon:141.35  },
+  { city:'Ulaanbaatar',    region:'Mongolia',                     tz:'Asia/Ulaanbaatar',      lat:47.91,  lon:106.88  },
+  { city:'Kathmandu',      region:'Nepal',                        tz:'Asia/Kathmandu',        lat:27.72,  lon:85.32   },
+  { city:'Tashkent',       region:'Uzbekistan',                   tz:'Asia/Tashkent',         lat:41.30,  lon:69.24   },
+  { city:'Almaty',         region:'Kazakhstan',                   tz:'Asia/Almaty',           lat:43.24,  lon:76.89   },
+  { city:'Tehran',         region:'Iran',                         tz:'Asia/Tehran',           lat:35.69,  lon:51.39   },
+  { city:'Baghdad',        region:'Iraq',                         tz:'Asia/Baghdad',          lat:33.34,  lon:44.40   },
+  { city:'Tel Aviv',       region:'Israel',                       tz:'Asia/Jerusalem',        lat:32.08,  lon:34.78   },
+  { city:'Beirut',         region:'Lebanon',                      tz:'Asia/Beirut',           lat:33.89,  lon:35.50   },
+  { city:'Amman',          region:'Jordan',                       tz:'Asia/Amman',            lat:31.95,  lon:35.93   },
+  { city:'Kuwait City',    region:'Kuwait',                       tz:'Asia/Kuwait',           lat:29.37,  lon:47.98   },
+  { city:'Muscat',         region:'Oman',                         tz:'Asia/Muscat',           lat:23.61,  lon:58.59   },
+  { city:'Kabul',          region:'Afghanistan',                  tz:'Asia/Kabul',            lat:34.53,  lon:69.17   },
+  { city:'Perth',          region:'Australia — Western',          tz:'Australia/Perth',       lat:-31.95, lon:115.86  },
+  { city:'Darwin',         region:'Australia — Northern',         tz:'Australia/Darwin',      lat:-12.46, lon:130.84  },
+  { city:'Adelaide',       region:'Australia — South',            tz:'Australia/Adelaide',    lat:-34.93, lon:138.60  },
+  { city:'Brisbane',       region:'Australia — Queensland',       tz:'Australia/Brisbane',    lat:-27.47, lon:153.03  },
+  { city:'Melbourne',      region:'Australia — Victoria',         tz:'Australia/Melbourne',   lat:-37.81, lon:144.96  },
+  { city:'Sydney',         region:'Australia — New South Wales',  tz:'Australia/Sydney',      lat:-33.87, lon:151.21  },
+  { city:'Hobart',         region:'Australia — Tasmania',         tz:'Australia/Hobart',      lat:-42.88, lon:147.33  },
+  { city:'Auckland',       region:'New Zealand',                  tz:'Pacific/Auckland',      lat:-36.87, lon:174.77  },
+  { city:'Suva',           region:'Fiji',                         tz:'Pacific/Fiji',          lat:-18.14, lon:178.44  },
+  { city:'Port Moresby',   region:'Papua New Guinea',             tz:'Pacific/Port_Moresby',  lat:-9.44,  lon:147.18  },
+  { city:'Noumea',         region:'New Caledonia',                tz:'Pacific/Noumea',        lat:-22.28, lon:166.46  },
+  { city:'Papeete',        region:'French Polynesia',             tz:'Pacific/Tahiti',        lat:-17.53, lon:-149.57 },
+  { city:'Apia',           region:'Samoa',                        tz:'Pacific/Apia',          lat:-13.83, lon:-171.77 },
+  { city:'Casablanca',     region:'Morocco',                      tz:'Africa/Casablanca',     lat:33.57,  lon:-7.59   },
+  { city:'Algiers',        region:'Algeria',                      tz:'Africa/Algiers',        lat:36.74,  lon:3.06    },
+  { city:'Tunis',          region:'Tunisia',                      tz:'Africa/Tunis',          lat:36.82,  lon:10.17   },
+  { city:'Accra',          region:'Ghana',                        tz:'Africa/Accra',          lat:5.56,   lon:-0.20   },
+  { city:'Addis Ababa',    region:'Ethiopia',                     tz:'Africa/Addis_Ababa',    lat:9.03,   lon:38.74   },
+  { city:'Dar es Salaam',  region:'Tanzania',                     tz:'Africa/Dar_es_Salaam',  lat:-6.79,  lon:39.21   },
+  { city:'Lusaka',         region:'Zambia',                       tz:'Africa/Lusaka',         lat:-15.41, lon:28.28   },
+  { city:'Harare',         region:'Zimbabwe',                     tz:'Africa/Harare',         lat:-17.83, lon:31.05   },
+  { city:'Maputo',         region:'Mozambique',                   tz:'Africa/Maputo',         lat:-25.97, lon:32.57   },
+  { city:'Antananarivo',   region:'Madagascar',                   tz:'Indian/Antananarivo',   lat:-18.91, lon:47.54   },
+  { city:'Oslo',           region:'Norway',                       tz:'Europe/Oslo',           lat:59.91,  lon:10.75   },
+  { city:'Copenhagen',     region:'Denmark',                      tz:'Europe/Copenhagen',     lat:55.68,  lon:12.57   },
+  { city:'Amsterdam',      region:'Netherlands',                  tz:'Europe/Amsterdam',      lat:52.37,  lon:4.90    },
+  { city:'Brussels',       region:'Belgium',                      tz:'Europe/Brussels',       lat:50.85,  lon:4.35    },
+  { city:'Zurich',         region:'Switzerland',                  tz:'Europe/Zurich',         lat:47.38,  lon:8.54    },
+  { city:'Vienna',         region:'Austria',                      tz:'Europe/Vienna',         lat:48.21,  lon:16.37   },
+  { city:'Prague',         region:'Czech Republic',               tz:'Europe/Prague',         lat:50.08,  lon:14.44   },
+  { city:'Warsaw',         region:'Poland',                       tz:'Europe/Warsaw',         lat:52.23,  lon:21.01   },
+  { city:'Budapest',       region:'Hungary',                      tz:'Europe/Budapest',       lat:47.50,  lon:19.04   },
+  { city:'Bucharest',      region:'Romania',                      tz:'Europe/Bucharest',      lat:44.43,  lon:26.10   },
+  { city:'Sofia',          region:'Bulgaria',                     tz:'Europe/Sofia',          lat:42.70,  lon:23.32   },
+  { city:'Belgrade',       region:'Serbia',                       tz:'Europe/Belgrade',       lat:44.80,  lon:20.46   },
+  { city:'Kyiv',           region:'Ukraine',                      tz:'Europe/Kyiv',           lat:50.45,  lon:30.52   },
+  { city:'Minsk',          region:'Belarus',                      tz:'Europe/Minsk',          lat:53.90,  lon:27.57   },
+  { city:'Riga',           region:'Latvia',                       tz:'Europe/Riga',           lat:56.95,  lon:24.11   },
+  { city:'Tallinn',        region:'Estonia',                      tz:'Europe/Tallinn',        lat:59.44,  lon:24.75   },
+  { city:'Vilnius',        region:'Lithuania',                    tz:'Europe/Vilnius',        lat:54.69,  lon:25.28   },
+  { city:'Lisbon',         region:'Portugal',                     tz:'Europe/Lisbon',         lat:38.72,  lon:-9.14   },
+  { city:'Madrid',         region:'Spain',                        tz:'Europe/Madrid',         lat:40.42,  lon:-3.70   },
+  { city:'Barcelona',      region:'Spain — Catalonia',            tz:'Europe/Madrid',         lat:41.39,  lon:2.15    },
+  { city:'Novosibirsk',    region:'Russia — Siberia',             tz:'Asia/Novosibirsk',      lat:54.99,  lon:82.90   },
+  { city:'Vladivostok',    region:'Russia — Far East',            tz:'Asia/Vladivostok',      lat:43.12,  lon:131.89  },
+  { city:'Yekaterinburg',  region:'Russia — Urals',               tz:'Asia/Yekaterinburg',    lat:56.84,  lon:60.60   },
+  { city:'UTC',            region:'Coordinated Universal Time',   tz:'UTC',                   lat:51.48,  lon:0       },
+];
+
+// ─── Sunrise / sunset ────────────────────────────────────────────────────────
+// Returns { rise, set } as minutes-from-midnight UTC, or null if polar day/night.
+function sunTimes(lat, lon, date) {
+  const D = Math.floor((Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) -
+    Date.UTC(date.getUTCFullYear(), 0, 0)) / 864e5);
+  const p = Math.PI / 180;
+  const gamma = 2 * Math.PI / 365 * (D - 1);
+  const eqtime = 229.18 * (0.000075 + 0.001868 * Math.cos(gamma)
+    - 0.032077 * Math.sin(gamma) - 0.014615 * Math.cos(2 * gamma)
+    - 0.04089  * Math.sin(2 * gamma));
+  const decl = 0.006918 - 0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma)
+    - 0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma)
+    - 0.002697 * Math.cos(3 * gamma) + 0.00148  * Math.sin(3 * gamma);
+  const cosHA = (Math.cos(90.833 * p) / (Math.cos(lat * p) * Math.cos(decl)))
+    - Math.tan(lat * p) * Math.tan(decl);
+  if (cosHA > 1)  return null; // polar night
+  if (cosHA < -1) return null; // midnight sun — treat as always up
+  const ha = Math.acos(cosHA) / p;
+  const noon = 720 - 4 * lon - eqtime;
+  return { rise: noon - ha * 4, set: noon + ha * 4 };
+}
+
+// Returns local minutes-from-midnight for a given tz and Date
+function localMinutes(tz, date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hour: 'numeric', minute: 'numeric', second: 'numeric',
+    hour12: false
+  }).formatToParts(date);
+  const p = {};
+  parts.forEach(({ type, value }) => p[type] = +value);
+  return (p.hour % 24) * 60 + p.minute + p.second / 60;
+}
+
+// Formats UTC minutes-from-midnight as HH:MM in a given timezone
+function fmtMinutes(tzOffsetMin, utcMin) {
+  const local = (utcMin + tzOffsetMin + 1440 * 3) % 1440;
+  const h = Math.floor(local / 60), m = Math.floor(local % 60);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+function getTzOffsetMin(tz, date) {
+  const utcMs = date.getTime();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, year:'numeric', month:'numeric', day:'numeric',
+    hour:'numeric', minute:'numeric', second:'numeric', hour12:false
+  }).formatToParts(date);
+  const p = {};
+  parts.forEach(({ type, value }) => p[type] = +value);
+  const localMs = Date.UTC(p.year, p.month-1, p.day, p.hour%24, p.minute, p.second);
+  return Math.round((localMs - utcMs) / 60000);
+}
+
+// ─── Solar position ──────────────────────────────────────────────────────────
+// Returns { elevation (°, +above horizon), azimuth (°, 0=N clockwise) }
+function sunPosition(lat, lon, date) {
+  const p = Math.PI / 180;
+  const D = Math.floor((Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) -
+    Date.UTC(date.getUTCFullYear(), 0, 0)) / 864e5);
+  const gamma = 2 * Math.PI / 365 * (D - 1 + (date.getUTCHours() - 12) / 24);
+  const eqtime = 229.18 * (0.000075 + 0.001868*Math.cos(gamma) - 0.032077*Math.sin(gamma)
+    - 0.014615*Math.cos(2*gamma) - 0.04089*Math.sin(2*gamma));
+  const decl = 0.006918 - 0.399912*Math.cos(gamma) + 0.070257*Math.sin(gamma)
+    - 0.006758*Math.cos(2*gamma) + 0.000907*Math.sin(2*gamma)
+    - 0.002697*Math.cos(3*gamma) + 0.00148*Math.sin(3*gamma);
+  const utcMin = date.getUTCHours()*60 + date.getUTCMinutes() + date.getUTCSeconds()/60;
+  const ha = (utcMin + eqtime + lon*4) / 4 - 180; // hour angle, degrees
+  const latR = lat * p;
+  const cosZ = Math.sin(latR)*Math.sin(decl) + Math.cos(latR)*Math.cos(decl)*Math.cos(ha*p);
+  const zenith = Math.acos(Math.max(-1, Math.min(1, cosZ))) / p;
+  const elevation = 90 - zenith;
+  const sinZ = Math.sin(zenith * p);
+  const cosAz = sinZ < 1e-10 ? 1
+    : -(Math.sin(latR)*cosZ - Math.sin(decl)) / (Math.cos(latR)*sinZ);
+  let azimuth = Math.acos(Math.max(-1, Math.min(1, cosAz))) / p;
+  if (ha > 0) azimuth = 360 - azimuth;
+  return { elevation, azimuth };
+}
+
+const COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+function compassDir(az) { return COMPASS[Math.round(az / 22.5) % 16]; }
+
+// ─── Sky color interpolation ──────────────────────────────────────────────────
+// solarFrac: 0=sunrise, 0.5=noon, 1=sunset, <0=night before, >1=night after
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+function lerpRgb(a, b, t) {
+  return [
+    Math.round(a[0] + (b[0]-a[0])*t),
+    Math.round(a[1] + (b[1]-a[1])*t),
+    Math.round(a[2] + (b[2]-a[2])*t),
+  ];
+}
+function rgbStr(c) { return `rgb(${c[0]},${c[1]},${c[2]})`; }
+
+// Color stops [solarFrac, topHex, bottomHex]
+const SKY = [
+  [-0.50, '#010206', '#010410'],
+  [-0.12, '#0a0618', '#150a28'],
+  [-0.03, '#2e0d1c', '#7a1a18'],
+  [ 0.00, '#c84a18', '#e88838'],
+  [ 0.06, '#5a8ed0', '#e8a850'],
+  [ 0.18, '#1a60b8', '#3a84d0'],
+  [ 0.50, '#0e3ea8', '#1460c8'],
+  [ 0.82, '#1a60b8', '#3a84d0'],
+  [ 0.94, '#c85a18', '#e88838'],
+  [ 1.00, '#b83010', '#701808'],
+  [ 1.03, '#2a0818', '#140515'],
+  [ 1.12, '#040408', '#010206'],
+  [ 1.50, '#010206', '#010410'],
+];
+
+function skyGradient(solarFrac) {
+  let i = 0;
+  while (i < SKY.length - 2 && SKY[i+1][0] < solarFrac) i++;
+  const a = SKY[i], b = SKY[i+1];
+  const t = Math.max(0, Math.min(1, (solarFrac - a[0]) / (b[0] - a[0])));
+  const top = lerpRgb(hexToRgb(a[1]), hexToRgb(b[1]), t);
+  const bot = lerpRgb(hexToRgb(a[2]), hexToRgb(b[2]), t);
+  return `linear-gradient(to bottom, ${rgbStr(top)}, ${rgbStr(bot)})`;
+}
+
+// Sun/star dot color
+function sunColor(solarFrac) {
+  if (solarFrac < -0.05 || solarFrac > 1.05) return 'rgba(200,220,255,0.7)'; // star
+  if (solarFrac < 0.05 || solarFrac > 0.95)  return '#f4a040'; // orange near horizon
+  return '#ffe060'; // yellow midday
+}
+function isStar(solarFrac) {
+  return solarFrac < -0.05 || solarFrac > 1.05;
+}
+
+// ─── SVG arc ─────────────────────────────────────────────────────────────────
+const cx = 100, cy = 108, r = 90;
+
+function buildArc(svgEl, solarFrac, sunriseLabel, sunsetLabel) {
+  const clamped = Math.max(-0.5, Math.min(1.5, solarFrac));
+  // Sun position along semicircle: f=0→left, f=0.5→top, f=1→right
+  const f = Math.max(0, Math.min(1, solarFrac));
+  const angle = Math.PI * (1 - f); // π at f=0, 0 at f=1
+  const sx = cx + r * Math.cos(angle);
+  const sy = cy - r * Math.sin(angle);
+  const aboveLine = solarFrac >= 0 && solarFrac <= 1;
+  const col = sunColor(solarFrac);
+  const star = isStar(solarFrac);
+
+  svgEl.innerHTML = `
+    <!-- horizon line -->
+    <line x1="${cx-r}" y1="${cy}" x2="${cx+r}" y2="${cy}"
+      stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <!-- arc path -->
+    <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}"
+      fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"
+      stroke-dasharray="${aboveLine ? 'none' : '4 4'}"/>
+    <!-- below horizon arc (dashed, darker) -->
+    <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 0 ${cx+r} ${cy}"
+      fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"
+      stroke-dasharray="3 5"/>
+    ${star
+      ? `<!-- star when night -->
+         <circle cx="${sx}" cy="${sy}" r="2" fill="${col}" opacity="0.6"/>
+         <circle cx="${sx}" cy="${sy}" r="4" fill="none" stroke="${col}" stroke-width="0.5" opacity="0.3"/>`
+      : `<!-- sun glow -->
+         <circle cx="${sx}" cy="${sy}" r="10" fill="${col}" opacity="0.08"/>
+         <circle cx="${sx}" cy="${sy}" r="6"  fill="${col}" opacity="0.15"/>
+         <circle cx="${sx}" cy="${sy}" r="4"  fill="${col}" opacity="0.9"/>`
+    }
+    <!-- horizon tick marks -->
+    <line x1="${cx-r}" y1="${cy-4}" x2="${cx-r}" y2="${cy+4}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+    <line x1="${cx+r}" y1="${cy-4}" x2="${cx+r}" y2="${cy+4}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+  `;
+}
+
+// ─── Formatters ──────────────────────────────────────────────────────────────
+const fmtHMS = (tz) => new Intl.DateTimeFormat('en-US', {
+  timeZone: tz, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
+});
+const fmtDate = (tz) => new Intl.DateTimeFormat('en-US', {
+  timeZone: tz, weekday:'short', month:'short', day:'numeric', year:'numeric'
+});
+const fmtHM = (tz) => new Intl.DateTimeFormat('en-US', {
+  timeZone: tz, hour:'2-digit', minute:'2-digit', hour12:false
+});
+
+function pad(n, w=2) { return String(n).padStart(w,'0'); }
+
+function fmtDuration(totalMin) {
+  const h = Math.floor(Math.abs(totalMin) / 60);
+  const m = Math.floor(Math.abs(totalMin) % 60);
+  return h > 0 ? `${h}h ${pad(m)}m` : `${m}m`;
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const LOCAL_KEY = 'worldclock_slots';
+let selected = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null')
+  || ['America/Los_Angeles', 'Europe/London', 'Asia/Tokyo'];
+
+function zoneFor(tz) {
+  return ZONES.find(z => z.tz === tz) || ZONES[0];
+}
+
+let pickerSlot = null;
+let pickerQuery = '';
+
+function openPicker(slotIdx) {
+  pickerSlot = slotIdx;
+  pickerQuery = '';
+  document.getElementById('picker-search').value = '';
+  renderPickerList('');
+  document.getElementById('picker-overlay').classList.remove('hidden');
+  document.getElementById('picker-search').focus();
+}
+
+function closePicker() {
+  document.getElementById('picker-overlay').classList.add('hidden');
+  pickerSlot = null;
+}
+
+document.getElementById('picker-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('picker-overlay')) closePicker();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closePicker();
+});
+
+function filterPicker(q) {
+  renderPickerList(q.toLowerCase());
+}
+
+function renderPickerList(q) {
+  const now = new Date();
+  const list = document.getElementById('picker-list');
+  const filtered = q
+    ? ZONES.filter(z => z.city.toLowerCase().includes(q) || z.region.toLowerCase().includes(q) || z.tz.toLowerCase().includes(q))
+    : ZONES;
+  list.innerHTML = filtered.map((z, i) => {
+    const t = fmtHM(z.tz).format(now).replace(/^24/, '00');
+    return `<div class="picker-item" onclick="selectZone('${z.tz}')">
+      <div class="picker-left">
+        <div class="picker-city">${z.city}</div>
+        <div class="picker-region">${z.region}</div>
+      </div>
+      <div class="picker-time">${t}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectZone(tz) {
+  if (pickerSlot === null) return;
+  selected[pickerSlot] = tz;
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(selected));
+  closePicker();
+  updateStaticLabels();
+}
+
+function updateStaticLabels() {
+  for (let i = 0; i < 3; i++) {
+    const z = zoneFor(selected[i]);
+    document.getElementById(`city-${i}`).textContent   = z.city;
+    document.getElementById(`region-${i}`).textContent = z.region;
+  }
+}
+
+// ─── Main render loop ─────────────────────────────────────────────────────────
+let sunCache = {};
+
+function getSun(zone, date) {
+  const dateStr = `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;
+  const key = zone.tz + dateStr;
+  if (!sunCache[key]) {
+    const st = sunTimes(zone.lat, zone.lon, date);
+    const off = getTzOffsetMin(zone.tz, date);
+    const yest = new Date(date.getTime() - 864e5);
+    const stY = sunTimes(zone.lat, zone.lon, yest);
+    const yestLenSec = stY ? Math.round((stY.set - stY.rise) * 60) : null;
+    sunCache[key] = { st, offsetMin: off, yestLenSec };
+    if (Object.keys(sunCache).length > 30) delete sunCache[Object.keys(sunCache)[0]];
+  }
+  return sunCache[key];
+}
+
+function formatLocalTime(utcMin, offsetMin) {
+  const local = (utcMin + offsetMin + 144000) % 1440;
+  const h = Math.floor(local / 60), m = Math.floor(local % 60);
+  return `${pad(h)}:${pad(m)}`;
+}
+
+function fmtSec(totalSec) {
+  const s = Math.max(0, Math.floor(totalSec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${pad(m)}m ${pad(sec)}s`;
+  if (m > 0) return `${m}m ${pad(sec)}s`;
+  return `${sec}s`;
+}
+
+function tick(timestamp) {
+  const now = new Date();
+  const utcSec = now.getUTCHours()*3600 + now.getUTCMinutes()*60 + now.getUTCSeconds();
+
+  // 4-decimal seconds: real ms + 1 sub-ms digit from RAF
+  const ms = now.getMilliseconds();
+  const tenthMs = Math.floor((timestamp % 1) * 10);
+  const fracStr = pad(ms, 3) + tenthMs;
+
+  for (let i = 0; i < 3; i++) {
+    const z = zoneFor(selected[i]);
+    const { st, offsetMin, yestLenSec } = getSun(z, now);
+
+    // Time display
+    document.getElementById(`hms-${i}`).textContent  = fmtHMS(z.tz).format(now).replace(/^24/, '00');
+    document.getElementById(`frac-${i}`).textContent = fracStr;
+    document.getElementById(`date-${i}`).textContent = fmtDate(z.tz).format(now);
+
+    let solarFrac = 0.5;
+    let srLabel = '–', ssLabel = '–', statusText = '–';
+
+    if (st) {
+      const localSec    = utcSec + offsetMin * 60;
+      const riseLocalSec = st.rise * 60 + offsetMin * 60;
+      const setLocalSec  = st.set  * 60 + offsetMin * 60;
+      const dayLenSec    = Math.round((st.set - st.rise) * 60);
+
+      solarFrac = (localSec - riseLocalSec) / (setLocalSec - riseLocalSec);
+
+      srLabel = `↑ ${formatLocalTime(st.rise, offsetMin)}`;
+      ssLabel = `↓ ${formatLocalTime(st.set,  offsetMin)}`;
+
+      // Status countdown with seconds
+      if (solarFrac < 0) {
+        const sec = (riseLocalSec - localSec + 86400) % 86400;
+        statusText = `Dawn in ${fmtSec(sec)}`;
+      } else if (solarFrac <= 1) {
+        statusText = `Sunset in ${fmtSec(setLocalSec - localSec)}`;
+      } else {
+        const sec = (riseLocalSec + 86400 - localSec + 86400) % 86400;
+        statusText = `Dawn in ${fmtSec(sec)}`;
+      }
+
+      // Remaining daylight (with seconds)
+      let remainText;
+      if (solarFrac >= 0 && solarFrac <= 1) {
+        remainText = fmtSec(setLocalSec - localSec);
+      } else {
+        const secToRise = (riseLocalSec - localSec + 86400) % 86400;
+        remainText = `in ${fmtSec(secToRise)}`;
+      }
+
+      // Total daylight
+      const dlH = Math.floor(dayLenSec / 3600);
+      const dlM = Math.floor((dayLenSec % 3600) / 60);
+      const dlS = dayLenSec % 60;
+
+      // Solar noon
+      const noonStr = formatLocalTime((st.rise + st.set) / 2, offsetMin);
+
+      // UTC offset
+      const offSign = offsetMin >= 0 ? '+' : '−';
+      const offH = Math.floor(Math.abs(offsetMin) / 60);
+      const offM = Math.abs(offsetMin) % 60;
+      const utcOffStr = `UTC ${offSign}${offH}${offM ? ':' + pad(offM) : ''}`;
+
+      // Golden hour windows
+      const mgS = formatLocalTime(st.rise,      offsetMin);
+      const mgE = formatLocalTime(st.rise + 60, offsetMin);
+      const egS = formatLocalTime(st.set - 60,  offsetMin);
+      const egE = formatLocalTime(st.set,        offsetMin);
+      const goldenStr = `${mgS}–${mgE}  ·  ${egS}–${egE}`;
+
+      // vs yesterday
+      let vsYestStr = '–';
+      if (yestLenSec !== null) {
+        const diff = dayLenSec - yestLenSec;
+        const sign = diff >= 0 ? '+' : '−';
+        vsYestStr = `${sign}${fmtSec(Math.abs(diff))}`;
+      }
+
+      // Progress bar
+      const pct = Math.max(0, Math.min(100, solarFrac * 100)).toFixed(1);
+
+      document.getElementById(`remaining-${i}`).textContent = remainText;
+      document.getElementById(`daylight-${i}`).textContent  = `${dlH}h ${pad(dlM)}m ${pad(dlS)}s`;
+      document.getElementById(`noon-${i}`).textContent      = noonStr;
+      document.getElementById(`utcoff-${i}`).textContent    = utcOffStr;
+      document.getElementById(`golden-${i}`).textContent    = goldenStr;
+      document.getElementById(`vsyest-${i}`).textContent    = vsYestStr;
+      document.getElementById(`progress-${i}`).style.width  = `${pct}%`;
+    } else {
+      solarFrac = z.lat > 0 ? 0.5 : -0.5;
+      srLabel   = 'Polar';
+      ssLabel   = z.lat > 66 ? 'Midnight sun' : 'Polar night';
+      statusText = '';
+      document.getElementById(`remaining-${i}`).textContent = '–';
+      document.getElementById(`daylight-${i}`).textContent  = '–';
+      document.getElementById(`noon-${i}`).textContent      = '–';
+      document.getElementById(`golden-${i}`).textContent    = '–';
+      document.getElementById(`vsyest-${i}`).textContent    = '–';
+      document.getElementById(`progress-${i}`).style.width  = '0%';
+      const offSign = offsetMin >= 0 ? '+' : '−';
+      const offH = Math.floor(Math.abs(offsetMin) / 60);
+      const offM = Math.abs(offsetMin) % 60;
+      document.getElementById(`utcoff-${i}`).textContent = `UTC ${offSign}${offH}${offM ? ':' + pad(offM) : ''}`;
+    }
+
+    document.getElementById(`bg-${i}`).style.background   = skyGradient(solarFrac);
+    buildArc(document.getElementById(`arc-svg-${i}`), solarFrac);
+    document.getElementById(`sr-label-${i}`).textContent   = srLabel;
+    document.getElementById(`ss-label-${i}`).textContent   = ssLabel;
+    document.getElementById(`sun-status-${i}`).textContent = statusText;
+
+    // Solar position (updates every frame)
+    const pos = sunPosition(z.lat, z.lon, now);
+    const elevSign = pos.elevation >= 0 ? '+' : '';
+    document.getElementById(`elev-${i}`).textContent =
+      `${elevSign}${pos.elevation.toFixed(2)}°  (${(90 - Math.abs(pos.elevation)).toFixed(2)}° from zenith)`;
+    document.getElementById(`azim-${i}`).textContent =
+      `${pos.azimuth.toFixed(2)}°  ${compassDir(pos.azimuth)}`;
+  }
+
+  requestAnimationFrame(tick);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+updateStaticLabels();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
