@@ -87,12 +87,13 @@ body {
 }
 .weather-row {
   font-size: 10px;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   color: rgba(255,255,255,0.38);
   margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
+  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .time-display {
@@ -742,17 +743,22 @@ async function fetchWeather(lat, lon) {
   }
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
-      + `&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m`
-      + `&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto`;
+      + `&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m,precipitation_probability`
+      + `&daily=temperature_2m_max,temperature_2m_min`
+      + `&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto&forecast_days=1`;
     const r = await fetch(url);
     const j = await r.json();
     const c = j.current;
-    const tempC = Math.round(c.temperature_2m);
-    const tempF = Math.round(tempC * 9/5 + 32);
-    const cond  = WMO_CODE[c.weathercode] ?? 'Unknown';
-    const wind  = Math.round(c.windspeed_10m);
-    const hum   = Math.round(c.relativehumidity_2m);
-    const data  = { tempC, tempF, cond, wind, hum };
+    const d = j.daily;
+    const toF = c => Math.round(c * 9/5 + 32);
+    const tempC   = Math.round(c.temperature_2m);
+    const feelsC  = Math.round(c.apparent_temperature);
+    const highC   = Math.round(d.temperature_2m_max[0]);
+    const lowC    = Math.round(d.temperature_2m_min[0]);
+    const cond    = WMO_CODE[c.weathercode] ?? 'Unknown';
+    const wind    = Math.round(c.windspeed_10m);
+    const precip  = c.precipitation_probability ?? null;
+    const data = { tempC, feelsC, highC, lowC, toF, cond, wind, precip };
     weatherCache[key] = { data, fetchedAt: now };
     return data;
   } catch { return null; }
@@ -766,8 +772,10 @@ function refreshWeather(slotIdx, zone) {
   document.getElementById(`weather-${slotIdx}`).textContent = '···';
   fetchWeather(zone.lat, zone.lon).then(d => {
     if (!d) { document.getElementById(`weather-${slotIdx}`).textContent = ''; return; }
+    const { tempC, feelsC, highC, lowC, toF, cond, wind, precip } = d;
+    const precipStr = precip != null ? `  ·  ${precip}% precip` : '';
     document.getElementById(`weather-${slotIdx}`).textContent =
-      `${d.tempC}°C / ${d.tempF}°F  ·  ${d.cond}  ·  ${d.wind} km/h  ·  ${d.hum}% hum`;
+      `${tempC}°C / ${toF(tempC)}°F  ·  feels ${feelsC}°  ·  ↑${highC}° ↓${lowC}°  ·  ${cond}  ·  ${wind} km/h${precipStr}`;
   });
 }
 
