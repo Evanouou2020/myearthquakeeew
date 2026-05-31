@@ -897,6 +897,39 @@ document.getElementById('sleep-time').addEventListener('change',e=>localStorage.
 // ══════════════════════════════════════
 let swRunning=false, swStart=0, swElapsed=0, swInterval=null, swLaps=[], swLapStart=0;
 
+function swSave(){
+  localStorage.setItem('tm_sw', JSON.stringify({
+    running: swRunning,
+    elapsed: swRunning ? Date.now()-swStart : swElapsed,
+    startedAt: swRunning ? swStart : null,
+    lapStart: swLapStart,
+    laps: swLaps
+  }));
+}
+function swLoad(){
+  try{
+    const d=JSON.parse(localStorage.getItem('tm_sw'));
+    if(!d) return;
+    swLaps=d.laps||[];
+    swLapStart=d.lapStart||0;
+    if(d.running && d.startedAt){
+      // Was running — pick up where it left off
+      swElapsed=Date.now()-d.startedAt;
+      swStart=d.startedAt;
+      swRunning=true;
+      swInterval=setInterval(swTick,33);
+      document.getElementById('sw-start-btn').textContent='Pause';
+      document.getElementById('sw-start-btn').className='btn danger';
+    } else {
+      swElapsed=d.elapsed||0;
+      document.getElementById('sw-start-btn').textContent=swElapsed>0?'Resume':'Start';
+      document.getElementById('sw-start-btn').className=swElapsed>0?'btn success':'btn primary';
+    }
+    document.getElementById('sw-display').textContent=fmtMs(swElapsed);
+    renderLaps();
+  }catch(e){}
+}
+
 function swToggle(){
   if(!swRunning){
     swStart=Date.now()-swElapsed;
@@ -912,21 +945,25 @@ function swToggle(){
     document.getElementById('sw-start-btn').textContent='Resume';
     document.getElementById('sw-start-btn').className='btn success';
   }
+  swSave();
 }
 function swTick(){
   swElapsed=Date.now()-swStart;
   document.getElementById('sw-display').textContent=fmtMs(swElapsed);
+  swSave();
 }
 function swLap(){
   if(!swRunning && swElapsed===0) return;
   const lapMs=Date.now()-swLapStart;
   swLapStart=Date.now();
   swLaps.push(lapMs);
+  swSave();
   renderLaps();
 }
 function swReset(){
   clearInterval(swInterval);
   swRunning=false; swElapsed=0; swStart=0; swLapStart=0; swLaps=[];
+  localStorage.removeItem('tm_sw');
   document.getElementById('sw-display').textContent='00:00.000';
   document.getElementById('sw-start-btn').textContent='Start';
   document.getElementById('sw-start-btn').className='btn primary';
@@ -941,6 +978,7 @@ function renderLaps(){
     return `<div class="sw-lap ${cls}"><span>Lap ${i+1}</span><span>${fmtMs(l)}</span></div>`;
   }).reverse().join('');
 }
+swLoad();
 
 // ══════════════════════════════════════
 // COUNTDOWN
@@ -1074,15 +1112,51 @@ renderPom();
 // ══════════════════════════════════════
 let timers={}, timerIdCounter=0;
 
+function saveTimers(){
+  const data=Object.values(timers).map(t=>({
+    id:t.id, name:t.name, total:t.total,
+    left:t.running ? Math.max(0, t.left - Math.floor((Date.now()-(t.startedAt||Date.now()))/1000)) : t.left,
+    running:t.running,
+    startedAt:t.running?(t.startedAt||Date.now()):null
+  }));
+  localStorage.setItem('tm_timers', JSON.stringify({data, counter:timerIdCounter}));
+}
+function loadTimers(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('tm_timers'));
+    if(!saved||!saved.data||!saved.data.length) return false;
+    timerIdCounter=saved.counter||0;
+    saved.data.forEach(t=>{
+      let left=t.left;
+      let startedAt=null;
+      if(t.running && t.startedAt){
+        const elapsed=Math.floor((Date.now()-t.startedAt)/1000);
+        left=Math.max(0,t.left-elapsed);
+        startedAt=t.startedAt;
+      }
+      timers[t.id]={id:t.id,name:t.name,total:t.total,left,running:false,interval:null,startedAt};
+      if(t.running && left>0){
+        // Resume running
+        timers[t.id].startedAt=Date.now()-(( t.total-left)*1000);
+        timers[t.id].running=true;
+        timers[t.id].interval=setInterval(()=>timerTick(t.id),1000);
+      }
+    });
+    return true;
+  }catch(e){ return false; }
+}
+
 function addTimer(name='Timer',h=0,m=5,s=0){
   const id=++timerIdCounter;
   const total=h*3600+m*60+s;
-  timers[id]={id,name,total,left:total,running:false,interval:null};
+  timers[id]={id,name,total,left:total,running:false,interval:null,startedAt:null};
+  saveTimers();
   renderTimers();
 }
 function deleteTimer(id){
   clearInterval(timers[id].interval);
   delete timers[id];
+  saveTimers();
   renderTimers();
 }
 function timerToggle(id){
@@ -1090,25 +1164,29 @@ function timerToggle(id){
   if(!t) return;
   if(!t.running){
     if(t.left<=0) t.left=t.total;
+    t.startedAt=Date.now()-(( t.total-t.left)*1000);
     t.interval=setInterval(()=>timerTick(id),1000);
     t.running=true;
   } else {
-    clearInterval(t.interval); t.running=false;
+    clearInterval(t.interval); t.running=false; t.startedAt=null;
   }
+  saveTimers();
   renderTimers();
 }
 function timerTick(id){
   const t=timers[id]; if(!t) return;
   t.left--;
   if(t.left<=0){
-    t.left=0; clearInterval(t.interval); t.running=false;
+    t.left=0; clearInterval(t.interval); t.running=false; t.startedAt=null;
     notify(`Timer: ${t.name}`,'Done!');
   }
+  saveTimers();
   updateTimerCard(id);
 }
 function timerReset(id){
   const t=timers[id]; if(!t) return;
-  clearInterval(t.interval); t.running=false; t.left=t.total;
+  clearInterval(t.interval); t.running=false; t.left=t.total; t.startedAt=null;
+  saveTimers();
   updateTimerCard(id);
 }
 function timerSetFromInputs(id){
@@ -1116,8 +1194,9 @@ function timerSetFromInputs(id){
   const m=parseInt(document.getElementById(`tm-${id}`).value)||0;
   const s=parseInt(document.getElementById(`ts-${id}`).value)||0;
   const t=timers[id]; if(!t) return;
-  clearInterval(t.interval); t.running=false;
+  clearInterval(t.interval); t.running=false; t.startedAt=null;
   t.total=h*3600+m*60+s; t.left=t.total;
+  saveTimers();
   updateTimerCard(id);
 }
 function updateTimerCard(id){
@@ -1138,7 +1217,7 @@ function renderTimers(){
     <div class="timer-card" id="tc-${t.id}">
       <button class="del-btn" onclick="deleteTimer(${t.id})">✕</button>
       <div class="timer-card-name">
-        <input id="tn-${t.id}" value="${t.name}" onblur="timers[${t.id}].name=this.value" placeholder="Name">
+        <input id="tn-${t.id}" value="${t.name}" onblur="timers[${t.id}].name=this.value;saveTimers();" placeholder="Name">
       </div>
       <div class="timer-input-row">
         <input class="timer-num" id="th-${t.id}" type="number" min="0" max="99" value="${Math.floor(t.total/3600)}" placeholder="0">
@@ -1148,18 +1227,22 @@ function renderTimers(){
         <input class="timer-num" id="ts-${t.id}" type="number" min="0" max="59" value="${t.total%60}" placeholder="0">
         <button class="btn" onclick="timerSetFromInputs(${t.id})" style="font-size:0.6rem;padding:3px 8px">Set</button>
       </div>
-      <div class="timer-display" id="td-${t.id}">${fmtSec(t.left)}</div>
-      <div class="timer-bar"><div class="timer-bar-fill" id="tb-${t.id}" style="width:0%"></div></div>
+      <div class="timer-display ${t.running?'':''}${t.left===0&&!t.running?' done':''}" id="td-${t.id}">${fmtSec(t.left)}</div>
+      <div class="timer-bar"><div class="timer-bar-fill" id="tb-${t.id}" style="width:${t.total>0?((1-t.left/t.total)*100):0}%"></div></div>
       <div class="timer-controls">
-        <button class="btn primary" id="tsbtn-${t.id}" onclick="timerToggle(${t.id})">Start</button>
+        <button class="${t.running?'btn danger':'btn primary'}" id="tsbtn-${t.id}" onclick="timerToggle(${t.id})">${t.running?'Pause':'Start'}</button>
         <button class="btn" onclick="timerReset(${t.id})">Reset</button>
       </div>
     </div>
   `).join('');
 }
-// Start with a couple of sample timers
-addTimer('Coffee Break',0,5,0);
-addTimer('Deep Work',0,25,0);
+// Load saved timers, or seed with defaults
+if(!loadTimers()){
+  addTimer('Coffee Break',0,5,0);
+  addTimer('Deep Work',0,25,0);
+} else {
+  renderTimers();
+}
 
 // ══════════════════════════════════════
 // TIME BLOCKS
