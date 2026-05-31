@@ -29,8 +29,8 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  padding: 56px 28px 24px;
+  justify-content: flex-end;
+  padding: 36px 28px 32px;
   border-right: 1px solid rgba(255,255,255,0.04);
   transition: background 4s ease;
 }
@@ -361,7 +361,7 @@ body {
   .time-hms  { font-size: clamp(28px, 10vw, 40px) !important; }
   .time-frac { font-size: clamp(17px, 6vw, 24px)  !important; }
 
-  .sun-arc-wrap svg { max-height: 160px; }
+  .sun-arc-wrap svg { max-height: 80px; }
 
   .stat-lbl  { font-size: 9px; }
   .stat-val  { font-size: 11px; }
@@ -385,7 +385,7 @@ body {
       </div>
       <div class="date-display" id="date-0">–</div>
       <div class="sun-arc-wrap" id="arc-wrap-0">
-        <svg viewBox="0 0 200 210" id="arc-svg-0"></svg>
+        <svg viewBox="0 0 200 110" id="arc-svg-0"></svg>
         <div class="sun-row">
           <div class="sun-time-label" id="sr-label-0">–</div>
           <div class="sun-status-label" id="sun-status-0">–</div>
@@ -418,7 +418,7 @@ body {
       </div>
       <div class="date-display" id="date-1">–</div>
       <div class="sun-arc-wrap" id="arc-wrap-1">
-        <svg viewBox="0 0 200 210" id="arc-svg-1"></svg>
+        <svg viewBox="0 0 200 110" id="arc-svg-1"></svg>
         <div class="sun-row">
           <div class="sun-time-label" id="sr-label-1">–</div>
           <div class="sun-status-label" id="sun-status-1">–</div>
@@ -451,7 +451,7 @@ body {
       </div>
       <div class="date-display" id="date-2">–</div>
       <div class="sun-arc-wrap" id="arc-wrap-2">
-        <svg viewBox="0 0 200 210" id="arc-svg-2"></svg>
+        <svg viewBox="0 0 200 110" id="arc-svg-2"></svg>
         <div class="sun-row">
           <div class="sun-time-label" id="sr-label-2">–</div>
           <div class="sun-status-label" id="sun-status-2">–</div>
@@ -761,89 +761,44 @@ function isStar(solarFrac) {
   return solarFrac < -0.05 || solarFrac > 1.05;
 }
 
-// ─── SVG arc (full circle — upper half = day, lower half = night) ────────────
-// cx, cy = centre; r = radius; viewBox is 200×210 so lower arc is visible
-const cx = 100, cy = 105, r = 88;
+// ─── SVG arc ─────────────────────────────────────────────────────────────────
+const cx = 100, cy = 108, r = 90;
 
-// arcFrac: 0=sunrise, 0.5=noon, 1=sunset, 1→2=night (1.5=midnight)
-function buildArc(svgEl, arcFrac) {
-  // Continuous angle: π*(1-arcFrac)
-  // arcFrac=0 → angle=π (left/sunrise)
-  // arcFrac=0.5 → angle=π/2 (top/noon)
-  // arcFrac=1 → angle=0 (right/sunset)
-  // arcFrac=1.5 → angle=-π/2 (bottom/midnight)
-  // arcFrac=2 → angle=-π (left/next sunrise)
-  const angle = Math.PI * (1 - arcFrac);
+function buildArc(svgEl, solarFrac, sunriseLabel, sunsetLabel) {
+  const clamped = Math.max(-0.5, Math.min(1.5, solarFrac));
+  // Sun position along semicircle: f=0→left, f=0.5→top, f=1→right
+  const f = Math.max(0, Math.min(1, solarFrac));
+  const angle = Math.PI * (1 - f); // π at f=0, 0 at f=1
   const sx = cx + r * Math.cos(angle);
   const sy = cy - r * Math.sin(angle);
-
-  const isDay   = arcFrac >= 0 && arcFrac <= 1;
-  const isNight = !isDay;
-
-  // Sun colour (above horizon) / moon colour (below)
-  const sunCol = arcFrac < 0.05 || arcFrac > 0.95 ? '#f4a040' : '#ffe060';
-
-  // Trail arc: highlight the portion of the arc already travelled today
-  // Day trail: from sunrise (π) to current angle, going counterclockwise (upper arc)
-  // Night trail: from sunset (0) to current angle, going clockwise (lower arc)
-  const trailDay = isDay
-    ? `<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${arcFrac > 0.5 ? 1 : 0} 1 ${sx} ${sy}"
-         fill="none" stroke="rgba(255,220,100,0.25)" stroke-width="2" stroke-linecap="round"/>`
-    : '';
-  const trailNight = isNight
-    ? (() => {
-        // from right horizon (sunset) clockwise through bottom to current pos
-        const nightFrac = arcFrac - 1; // 0→1 during night
-        const largeArc  = nightFrac > 0.5 ? 1 : 0;
-        return `<path d="M ${cx+r} ${cy} A ${r} ${r} 0 ${largeArc} 0 ${sx} ${sy}"
-          fill="none" stroke="rgba(160,180,255,0.18)" stroke-width="2" stroke-linecap="round"/>`;
-      })()
-    : '';
+  const aboveLine = solarFrac >= 0 && solarFrac <= 1;
+  const col = sunColor(solarFrac);
+  const star = isStar(solarFrac);
 
   svgEl.innerHTML = `
-    <!-- Night arc: lower semicircle (dashed) -->
-    <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 0 ${cx+r} ${cy}"
-      fill="none"
-      stroke="${isNight ? 'rgba(180,200,255,0.14)' : 'rgba(255,255,255,0.05)'}"
-      stroke-width="${isNight ? 1.5 : 1}" stroke-dasharray="4 6"/>
-
-    <!-- Day arc: upper semicircle -->
-    <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}"
-      fill="none"
-      stroke="${isDay ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)'}"
-      stroke-width="${isDay ? 1.5 : 1}"/>
-
-    <!-- Travelled trail -->
-    ${trailDay}${trailNight}
-
-    <!-- Horizon line -->
-    <line x1="${cx-r-4}" y1="${cy}" x2="${cx+r+4}" y2="${cy}"
-      stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-    <line x1="${cx-r}" y1="${cy-5}" x2="${cx-r}" y2="${cy+5}"
-      stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
-    <line x1="${cx+r}" y1="${cy-5}" x2="${cx+r}" y2="${cy+5}"
-      stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
-
-    ${isDay ? `
-      <!-- Sun glow -->
-      <circle cx="${sx}" cy="${sy}" r="12" fill="${sunCol}" opacity="0.06"/>
-      <circle cx="${sx}" cy="${sy}" r="7"  fill="${sunCol}" opacity="0.14"/>
-      <circle cx="${sx}" cy="${sy}" r="4"  fill="${sunCol}" opacity="0.95"/>
-    ` : `
-      <!-- Moon: crescent via two overlapping circles -->
-      <circle cx="${sx}"   cy="${sy}"   r="6"  fill="rgba(200,215,255,0.6)"/>
-      <circle cx="${sx+3}" cy="${sy-1}" r="5"  fill="${skyGradient(arcFrac).includes('rgb') ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0)'}"/>
-      <circle cx="${sx+2}" cy="${sy-1}" r="4.5" fill="rgba(10,12,28,0.85)"/>
-      <circle cx="${sx}"   cy="${sy}"   r="6"  fill="none"
-        stroke="rgba(200,215,255,0.3)" stroke-width="0.5"/>
-    `}
-
-    <!-- Midnight marker at bottom -->
-    <line x1="${cx}" y1="${cy+r-6}" x2="${cx}" y2="${cy+r+4}"
+    <!-- horizon line -->
+    <line x1="${cx-r}" y1="${cy}" x2="${cx+r}" y2="${cy}"
       stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-    <text x="${cx}" y="${cy+r+14}" text-anchor="middle"
-      font-family="monospace" font-size="7" fill="rgba(255,255,255,0.15)"
-      letter-spacing="1">MIDNIGHT</text>
+    <!-- arc path -->
+    <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}"
+      fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"
+      stroke-dasharray="${aboveLine ? 'none' : '4 4'}"/>
+    <!-- below horizon arc (dashed, darker) -->
+    <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 0 ${cx+r} ${cy}"
+      fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"
+      stroke-dasharray="3 5"/>
+    ${star
+      ? `<!-- star when night -->
+         <circle cx="${sx}" cy="${sy}" r="2" fill="${col}" opacity="0.6"/>
+         <circle cx="${sx}" cy="${sy}" r="4" fill="none" stroke="${col}" stroke-width="0.5" opacity="0.3"/>`
+      : `<!-- sun glow -->
+         <circle cx="${sx}" cy="${sy}" r="10" fill="${col}" opacity="0.08"/>
+         <circle cx="${sx}" cy="${sy}" r="6"  fill="${col}" opacity="0.15"/>
+         <circle cx="${sx}" cy="${sy}" r="4"  fill="${col}" opacity="0.9"/>`
+    }
+    <!-- horizon tick marks -->
+    <line x1="${cx-r}" y1="${cy-4}" x2="${cx-r}" y2="${cy+4}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+    <line x1="${cx+r}" y1="${cy-4}" x2="${cx+r}" y2="${cy+4}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
   `;
 }
 
@@ -1031,7 +986,7 @@ function tick(timestamp) {
     document.getElementById(`frac-${i}`).textContent = fracStr;
     document.getElementById(`date-${i}`).textContent = fmtDate(z.tz).format(now);
 
-    let solarFrac = 0.5, arcFrac = 0.5;
+    let solarFrac = 0.5;
     let srLabel = '–', ssLabel = '–', statusText = '–';
 
     // UTC offset string (needed in both branches)
@@ -1052,25 +1007,13 @@ function tick(timestamp) {
 
       const isDay = localSecNow >= riseLocal && localSecNow <= setLocal;
 
-      // Solar fraction for sky gradient
+      // Solar fraction for gradient/arc
       if (isDay) {
         solarFrac = (localSecNow - riseLocal) / dayLenSec;
       } else if (localSecNow < riseLocal) {
-        solarFrac = -(riseLocal - localSecNow) / dayLenSec;
+        solarFrac = -(riseLocal - localSecNow) / dayLenSec;   // negative = pre-dawn
       } else {
-        solarFrac = 1 + (localSecNow - setLocal) / dayLenSec;
-      }
-
-      // Arc fraction: 0=sunrise, 0.5=noon, 1=sunset, 1→2=night (1.5=midnight)
-      let arcFrac;
-      if (isDay) {
-        arcFrac = solarFrac; // 0→1
-      } else {
-        const secToRise = localSecNow < riseLocal
-          ? riseLocal - localSecNow
-          : 86400 - localSecNow + riseLocal;
-        const nightFrac = 1 - secToRise / Math.max(1, nightLenSec); // 0=sunset, 1=sunrise
-        arcFrac = 1 + nightFrac;
+        solarFrac = 1 + (localSecNow - setLocal) / dayLenSec; // > 1 = post-sunset
       }
 
       srLabel = `↑ ${formatLocalTime(st.rise, offsetMin)}`;
@@ -1133,7 +1076,6 @@ function tick(timestamp) {
                   - Math.tan(z.lat * Math.PI/180) * 0;
       const midnightSun = cosHA < -1;
       solarFrac  = midnightSun ? 0.5 : -0.5;
-      arcFrac    = midnightSun ? 0.5 : 1.5;
       srLabel    = midnightSun ? 'Midnight sun' : 'Polar night';
       ssLabel    = '';
       statusText = '';
@@ -1143,8 +1085,8 @@ function tick(timestamp) {
       document.getElementById(`utcoff-${i}`).textContent   = utcOffStr;
     }
 
-    document.getElementById(`bg-${i}`).style.background = skyGradient(solarFrac);
-    buildArc(document.getElementById(`arc-svg-${i}`), arcFrac);
+    document.getElementById(`bg-${i}`).style.background   = skyGradient(solarFrac);
+    buildArc(document.getElementById(`arc-svg-${i}`), solarFrac);
     document.getElementById(`sr-label-${i}`).textContent   = srLabel;
     document.getElementById(`ss-label-${i}`).textContent   = ssLabel;
     document.getElementById(`sun-status-${i}`).textContent = statusText;
