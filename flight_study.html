@@ -453,7 +453,7 @@ map.setView([30, -30], 3);
 // ── State ──────────────────────────────────────────
 let fr24_id=null, callsign=null, landed=false;
 let pollTimer=null, rafId=null;
-let trailLine=null, projLine=null, destMarker=null, origMarker=null, plane=null;
+let trailLines=[], projLines=[], destMarker=null, origMarker=null, plane=null;
 let etaMinutes=null, totalMinutes=null;
 let sessionStart=null, lastData=null, lastPollTime=null;
 let drLat=null, drLon=null, drHeading=null, drSpeedMs=null;
@@ -480,34 +480,57 @@ function projectPos(lat,lon,speedMs,hdg,sec){
   return [lat2*180/Math.PI,lon2*180/Math.PI];
 }
 
-// Unwrap a [[lat,lon],...] path so longitudes are continuous (fixes antimeridian)
-function unwrapPath(pts){
-  if(!pts||pts.length<2) return pts;
-  const out=[[pts[0][0],pts[0][1]]];
+// Split a [[lat,lon],...] path into segments at antimeridian crossings
+// Returns array of segments — each segment stays within [-180,180]
+function splitAntimeridian(pts){
+  if(!pts||pts.length<2) return [pts];
+  const segs=[];
+  let cur=[pts[0]];
   for(let i=1;i<pts.length;i++){
-    let dlon=pts[i][1]-out[i-1][1];
-    if(dlon>180) dlon-=360;
-    if(dlon<-180) dlon+=360;
-    out.push([pts[i][0], out[i-1][1]+dlon]);
+    const dlon=pts[i][1]-pts[i-1][1];
+    if(Math.abs(dlon)>180){
+      // Interpolate crossing latitude
+      const lon1=pts[i-1][1], lat1=pts[i-1][0];
+      const lon2=pts[i][1],   lat2=pts[i][0];
+      const edge1=lon1>0?180:-180, edge2=lon1>0?-180:180;
+      const t=(edge1-lon1)/(lon2-lon1);
+      const crossLat=lat1+t*(lat2-lat1);
+      cur.push([crossLat,edge1]);
+      segs.push(cur);
+      cur=[[crossLat,edge2],pts[i]];
+    } else {
+      cur.push(pts[i]);
+    }
   }
-  return out;
+  segs.push(cur);
+  return segs;
 }
 
-// Great circle — antimeridian-aware
+// Great circle points — raw lon in [-180,180]
 function greatCircle(lat1,lon1,lat2,lon2,steps=120){
   const R=Math.PI/180;
   const φ1=lat1*R,λ1=lon1*R,φ2=lat2*R,λ2=lon2*R;
   const d=2*Math.asin(Math.sqrt(Math.sin((φ2-φ1)/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin((λ2-λ1)/2)**2));
   if(d<0.0001) return [[lat1,lon1],[lat2,lon2]];
-  const raw=[];
+  const pts=[];
   for(let i=0;i<=steps;i++){
     const f=i/steps,A=Math.sin((1-f)*d)/Math.sin(d),B=Math.sin(f*d)/Math.sin(d);
     const x=A*Math.cos(φ1)*Math.cos(λ1)+B*Math.cos(φ2)*Math.cos(λ2);
     const y=A*Math.cos(φ1)*Math.sin(λ1)+B*Math.cos(φ2)*Math.sin(λ2);
     const z=A*Math.sin(φ1)+B*Math.sin(φ2);
-    raw.push([Math.atan2(z,Math.sqrt(x*x+y*y))/R, Math.atan2(y,x)/R]);
+    pts.push([Math.atan2(z,Math.sqrt(x*x+y*y))/R, Math.atan2(y,x)/R]);
   }
-  return unwrapPath(raw);
+  return pts; // raw [-180,180]; caller uses splitAntimeridian
+}
+
+// Set a polyline group (array of L.polyline) or create them
+function setPolylineGroup(group, segments, style, addTo){
+  // Remove extras
+  while(group.length>segments.length){ map.removeLayer(group.pop()); }
+  segments.forEach((seg,i)=>{
+    if(group[i]) group[i].setLatLngs(seg);
+    else { group[i]=L.polyline(seg,style).addTo(addTo); }
+  });
 }
 
 function fmtTime(ts, tzName){
@@ -580,8 +603,10 @@ async function startSession(id,cs){
   document.getElementById('panel').style.display='flex';
   document.getElementById('landed').style.display='none';
 
-  [trailLine,projLine,destMarker,origMarker,plane].forEach(l=>l&&map.removeLayer(l));
-  trailLine=projLine=destMarker=origMarker=plane=null;
+  [...trailLines,...projLines].forEach(l=>map.removeLayer(l));
+  trailLines=[]; projLines=[];
+  [destMarker,origMarker,plane].forEach(l=>l&&map.removeLayer(l));
+  destMarker=origMarker=plane=null;
 
   document.getElementById('topbar-callsign').textContent=cs;
   document.getElementById('timer').textContent='—h —m';
@@ -689,18 +714,16 @@ function render(d){
   document.getElementById('ph-text').textContent=phase+(d.status?' · '+d.status:'');
   document.getElementById('ph-dot').className='ph-dot '+cls;
 
-  // Map trail — unwrap for antimeridian
+  // Map trail — split at antimeridian
   if(d.waypoints?.length>1){
-    const trail=unwrapPath(d.waypoints);
-    if(!trailLine) trailLine=L.polyline(trail,{color:'#4a7fff',weight:2.5,opacity:0.7}).addTo(map);
-    else trailLine.setLatLngs(trail);
+    const segs=splitAntimeridian(d.waypoints);
+    setPolylineGroup(trailLines,segs,{color:'#4a7fff',weight:2.5,opacity:0.7},map);
   }
 
-  // Projected path
+  // Projected path — great circle split at antimeridian
   if(d.lat&&d.lon&&dest?.lat){
-    const proj=greatCircle(d.lat,d.lon,dest.lat,dest.lon);
-    if(!projLine) projLine=L.polyline(proj,{color:'#4a7fff',weight:1.5,dashArray:'6 5',opacity:0.35}).addTo(map);
-    else projLine.setLatLngs(proj);
+    const segs=splitAntimeridian(greatCircle(d.lat,d.lon,dest.lat,dest.lon));
+    setPolylineGroup(projLines,segs,{color:'#4a7fff',weight:1.5,dashArray:'6 5',opacity:0.35},map);
   }
 
   // Airport markers
@@ -778,12 +801,12 @@ function rafLoop(){
 
     // Update projected path from current projected pos
     if(lastData.destination?.lat){
-      // Normalize lon to [-180,180] for haversine/greatCircle
       const nLon=((pLon+180)%360+360)%360-180;
       const rem=haversine(pLat,nLon,lastData.destination.lat,lastData.destination.lon);
       distRemainingKm=rem;
-      if(projLine){
-        projLine.setLatLngs(greatCircle(pLat,nLon,lastData.destination.lat,lastData.destination.lon));
+      if(projLines.length){
+        const segs=splitAntimeridian(greatCircle(pLat,nLon,lastData.destination.lat,lastData.destination.lon));
+        setPolylineGroup(projLines,segs,{color:'#4a7fff',weight:1.5,dashArray:'6 5',opacity:0.35},map);
       }
     }
   }
