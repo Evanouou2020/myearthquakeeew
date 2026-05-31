@@ -394,12 +394,16 @@ body {
     <div id="timer-box">
       <div id="timer">—h ——m ——s</div>
       <div id="timer-sub">Estimating arrival…</div>
+      <div id="total-flight-time" style="font-size:0.6rem;color:#30354a;margin-top:5px;letter-spacing:0.08em;"></div>
     </div>
   </div>
 
   <div id="stats-section">
     <div class="stat"><div class="stat-lbl">Altitude</div><div class="stat-val" id="s-alt">—</div></div>
-    <div class="stat"><div class="stat-lbl">Speed</div><div class="stat-val" id="s-spd">—</div></div>
+    <div class="stat" id="spd-stat" style="cursor:pointer" title="Tap to change unit">
+      <div class="stat-lbl">Speed <span id="spd-unit-lbl" style="color:#4a7fff">kts</span></div>
+      <div class="stat-val" id="s-spd">—</div>
+    </div>
     <div class="stat"><div class="stat-lbl">Heading</div><div class="stat-val" id="s-hdg">—</div></div>
     <div class="stat"><div class="stat-lbl">Vert Rate</div><div class="stat-val" id="s-vrt">—</div></div>
     <div class="stat"><div class="stat-lbl">Airline</div><div class="stat-val" style="font-size:0.75rem;color:#7080a0" id="s-airl">—</div></div>
@@ -458,7 +462,7 @@ let etaMinutes=null, totalMinutes=null;
 let sessionStart=null, lastData=null, lastPollTime=null;
 let drLat=null, drLon=null, drHeading=null, drSpeedMs=null;
 let distRemainingKm=null, distTraveledKm=null, totalKm=null;
-let activeUnit='km', mapCentered=false, followPlane=false;
+let activeUnit='km', activeSpdUnit='kts', mapCentered=false, followPlane=false;
 let activeTZ=null;
 let lastFollowPan=0;
 
@@ -639,8 +643,13 @@ async function poll(){
     lastData=d;
     drLat=d.lat; drLon=d.lon;
     drHeading=d.heading; drSpeedMs=d.speed_ms;
-    distRemainingKm=d.dist_remaining_km;
-    distTraveledKm=d.dist_traveled_km;
+    // Only snap distance from server if we have no estimate yet, or drift >20km
+    if(distRemainingKm==null || Math.abs((d.dist_remaining_km||0)-distRemainingKm)>20){
+      distRemainingKm=d.dist_remaining_km;
+    }
+    if(distTraveledKm==null || Math.abs((d.dist_traveled_km||0)-distTraveledKm)>20){
+      distTraveledKm=d.dist_traveled_km;
+    }
     totalKm=d.total_km;
     document.getElementById('stale-badge').style.display='none';
     render(d);
@@ -696,15 +705,23 @@ function render(d){
   buildTZBar();
   updateTimes(d);
 
-  // ETA — sync to server value each poll
+  // ETA — only resync if no estimate yet, or server differs >60s (avoid jumps)
   if(d.eta_seconds!=null && d.eta_seconds>0){
-    etaSeconds=d.eta_seconds;
+    if(etaSeconds==null || Math.abs(d.eta_seconds-etaSeconds)>60){
+      etaSeconds=d.eta_seconds;
+    }
     updateTimer();
+  }
+  // Total flight time (actual dep → est arr)
+  if(d.actual_dep && d.est_arr){
+    const totalSec=d.est_arr-d.actual_dep;
+    const th=Math.floor(totalSec/3600), tm=Math.floor((totalSec%3600)/60);
+    document.getElementById('total-flight-time').textContent=`Total ${th}h ${String(tm).padStart(2,'0')}m`;
   }
 
   // Stats
   document.getElementById('s-alt').innerHTML=d.altitude_ft?`${d.altitude_ft.toLocaleString()}<span class="su"> ft</span>`:'—';
-  document.getElementById('s-spd').innerHTML=d.speed_kts?`${Math.round(d.speed_kts)}<span class="su"> kts</span>`:'—';
+  updateSpeedDisplay(d.speed_kts);
   document.getElementById('s-hdg').innerHTML=d.heading!=null?`${d.heading}<span class="su">°</span>`:'—';
   const vrt=d.vertical_rate_fpm;
   document.getElementById('s-vrt').innerHTML=vrt?`${vrt>0?'+':''}${vrt.toLocaleString()}<span class="su"> fpm</span>`:'—';
@@ -908,6 +925,25 @@ document.querySelectorAll('.unit-tab').forEach(tab=>{
     activeUnit=tab.dataset.unit;
     updateDistPanel();
   });
+});
+
+// ── Speed display ──────────────────────────────────
+const SPD_UNITS=['kts','mph','km/h','m/s'];
+function updateSpeedDisplay(kts){
+  if(!kts){ document.getElementById('s-spd').textContent='—'; return; }
+  const vals={
+    'kts': Math.round(kts),
+    'mph': Math.round(kts*1.15078),
+    'km/h': Math.round(kts*1.852),
+    'm/s':  (kts*0.514444).toFixed(1)
+  };
+  document.getElementById('s-spd').innerHTML=`${vals[activeSpdUnit]}<span class="su"> ${activeSpdUnit}</span>`;
+  document.getElementById('spd-unit-lbl').textContent=activeSpdUnit;
+}
+document.getElementById('spd-stat').addEventListener('click',()=>{
+  const i=SPD_UNITS.indexOf(activeSpdUnit);
+  activeSpdUnit=SPD_UNITS[(i+1)%SPD_UNITS.length];
+  if(lastData) updateSpeedDisplay(lastData.speed_kts);
 });
 
 // ── Landed ─────────────────────────────────────────
