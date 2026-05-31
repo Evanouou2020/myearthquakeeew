@@ -265,21 +265,31 @@ body {
 }
 
 /* ── Mobile ── */
-@media (max-width: 600px) {
-  body { overflow:auto; }
-  #map { position:fixed; top:44px; left:0; right:0; height:38vh; bottom:auto; z-index:0; }
+@media (max-width: 700px) {
+  body { overflow:hidden; height:100vh; }
+  /* Map: fixed strip below topbar */
+  #map {
+    position:fixed; top:44px; left:0; right:0;
+    height:38vh; bottom:auto; z-index:0;
+  }
+  /* Panel: fixed strip below map, scrolls independently */
   #panel {
-    position:relative; left:auto; top:auto; bottom:auto;
-    width:100%; margin-top:calc(38vh + 44px);
-    border-right:none; border-top:1px solid rgba(255,255,255,0.07);
-    max-height:none; overflow-y:visible; display:block !important;
+    position:fixed !important;
+    top:calc(44px + 38vh); left:0; right:0; bottom:0;
+    width:100%;
+    border-right:none; border-top:1px solid rgba(255,255,255,0.1);
+    flex-direction:column; overflow-y:auto; overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    background:rgba(10,12,18,0.97);
+    z-index:80;
   }
   #topbar { padding:0 10px; gap:7px; }
   #topbar-airline { display:none; }
   .tb-sep:nth-child(4) { display:none; }
   #new-btn { padding:4px 9px; font-size:0.66rem; }
+  #follow-btn { padding:4px 9px; font-size:0.66rem; }
   .ap-code { font-size:1.7rem; }
-  #timer { font-size:1.9rem; }
+  #timer { font-size:1.9rem; letter-spacing:0.01em; }
   #stats-section { grid-template-columns:1fr 1fr; }
   .dist-sub-grid { grid-template-columns:1fr 1fr; }
   #photo-wrap { height:90px; }
