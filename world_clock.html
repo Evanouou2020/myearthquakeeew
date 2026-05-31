@@ -90,11 +90,32 @@ body {
   letter-spacing: 0.8px;
   color: rgba(255,255,255,0.38);
   margin-bottom: 16px;
-  line-height: 1.6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.weather-text {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
+.cf-toggle {
+  flex-shrink: 0;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.28);
+  border: 1px solid rgba(255,255,255,0.15);
+  background: transparent;
+  padding: 1px 5px;
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 0.15s;
+}
+.cf-toggle:hover { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.4); }
 
 .time-display {
   line-height: 1;
@@ -145,6 +166,14 @@ body {
   color: rgba(255,255,255,0.35);
   text-align: center;
   text-transform: uppercase;
+}
+.sun-pct-label {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.22);
+  text-align: center;
+  margin-top: 3px;
+  margin-bottom: 6px;
 }
 .progress-wrap {
   height: 2px;
@@ -390,7 +419,7 @@ body {
     <div class="slot-content">
       <div class="city-label" id="city-0">–</div>
       <div class="region-label" id="region-0">–</div>
-      <div class="weather-row" id="weather-0">–</div>
+      <div class="weather-row" id="weather-0"><span class="weather-text" id="weather-text-0">–</span><button class="cf-toggle" id="cf-btn" onclick="toggleCF()">°C</button></div>
       <div class="time-display">
         <span class="time-hms" id="hms-0">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-0">0000</span>
       </div>
@@ -402,9 +431,9 @@ body {
           <div class="sun-status-label" id="sun-status-0">–</div>
           <div class="sun-time-label" id="ss-label-0">–</div>
         </div>
+        <div class="sun-pct-label" id="dlpct-0">–</div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-0" style="width:0%"></div></div>
         <div class="stats-list">
-          <div class="stat-row"><span class="stat-lbl">Remaining</span><span class="stat-val hi" id="remaining-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-0">–</span></div>
@@ -413,7 +442,6 @@ body {
           <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-0">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Daylight rem.</span><span class="stat-val" id="dlpct-0">–</span></div>
         </div>
       </div>
     </div>
@@ -424,7 +452,7 @@ body {
     <div class="slot-content">
       <div class="city-label" id="city-1">–</div>
       <div class="region-label" id="region-1">–</div>
-      <div class="weather-row" id="weather-1">–</div>
+      <div class="weather-row" id="weather-1"><span class="weather-text" id="weather-text-1">–</span></div>
       <div class="time-display">
         <span class="time-hms" id="hms-1">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-1">0000</span>
       </div>
@@ -436,9 +464,9 @@ body {
           <div class="sun-status-label" id="sun-status-1">–</div>
           <div class="sun-time-label" id="ss-label-1">–</div>
         </div>
+        <div class="sun-pct-label" id="dlpct-1">–</div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-1" style="width:0%"></div></div>
         <div class="stats-list">
-          <div class="stat-row"><span class="stat-lbl">Remaining</span><span class="stat-val hi" id="remaining-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-1">–</span></div>
@@ -447,7 +475,6 @@ body {
           <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-1">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Daylight rem.</span><span class="stat-val" id="dlpct-1">–</span></div>
         </div>
       </div>
     </div>
@@ -458,7 +485,7 @@ body {
     <div class="slot-content">
       <div class="city-label" id="city-2">–</div>
       <div class="region-label" id="region-2">–</div>
-      <div class="weather-row" id="weather-2">–</div>
+      <div class="weather-row" id="weather-2"><span class="weather-text" id="weather-text-2">–</span></div>
       <div class="time-display">
         <span class="time-hms" id="hms-2">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-2">0000</span>
       </div>
@@ -470,9 +497,9 @@ body {
           <div class="sun-status-label" id="sun-status-2">–</div>
           <div class="sun-time-label" id="ss-label-2">–</div>
         </div>
+        <div class="sun-pct-label" id="dlpct-2">–</div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-2" style="width:0%"></div></div>
         <div class="stats-list">
-          <div class="stat-row"><span class="stat-lbl">Remaining</span><span class="stat-val hi" id="remaining-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-2">–</span></div>
@@ -481,7 +508,6 @@ body {
           <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-2">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Daylight rem.</span><span class="stat-val" id="dlpct-2">–</span></div>
         </div>
       </div>
     </div>
@@ -766,17 +792,42 @@ async function fetchWeather(lat, lon) {
 
 // slot → last zone key so we re-fetch when city changes
 const weatherSlotKey = ['','',''];
+let useFahrenheit = localStorage.getItem('wc_cf') === 'F';
+
+function weatherStr(d) {
+  if (!d) return '';
+  const { tempC, feelsC, highC, lowC, toF, cond, wind, precip } = d;
+  const t   = useFahrenheit ? `${toF(tempC)}°F` : `${tempC}°C`;
+  const fl  = useFahrenheit ? `${toF(feelsC)}°` : `${feelsC}°`;
+  const hi  = useFahrenheit ? toF(highC) : highC;
+  const lo  = useFahrenheit ? toF(lowC)  : lowC;
+  const pcp = precip != null && precip > 0 ? `  ·  ${precip}%🌧` : '';
+  return `${t}  feels ${fl}  ·  ↑${hi}° ↓${lo}°  ·  ${cond}  ·  ${wind}km/h${pcp}`;
+}
+
+function renderWeather() {
+  for (let i = 0; i < 3; i++) {
+    const key = weatherSlotKey[i];
+    const entry = key && weatherCache[key];
+    const el = document.getElementById(`weather-text-${i}`);
+    if (el) el.textContent = entry ? weatherStr(entry.data) : '···';
+  }
+  const btn = document.getElementById('cf-btn');
+  if (btn) btn.textContent = useFahrenheit ? '°F' : '°C';
+}
+
+function toggleCF() {
+  useFahrenheit = !useFahrenheit;
+  localStorage.setItem('wc_cf', useFahrenheit ? 'F' : 'C');
+  renderWeather();
+}
+
 function refreshWeather(slotIdx, zone) {
   const key = `${zone.lat.toFixed(2)},${zone.lon.toFixed(2)}`;
   weatherSlotKey[slotIdx] = key;
-  document.getElementById(`weather-${slotIdx}`).textContent = '···';
-  fetchWeather(zone.lat, zone.lon).then(d => {
-    if (!d) { document.getElementById(`weather-${slotIdx}`).textContent = ''; return; }
-    const { tempC, feelsC, highC, lowC, toF, cond, wind, precip } = d;
-    const precipStr = precip != null ? `  ·  ${precip}% precip` : '';
-    document.getElementById(`weather-${slotIdx}`).textContent =
-      `${tempC}°C / ${toF(tempC)}°F  ·  feels ${feelsC}°  ·  ↑${highC}° ↓${lowC}°  ·  ${cond}  ·  ${wind} km/h${precipStr}`;
-  });
+  const el = document.getElementById(`weather-text-${slotIdx}`);
+  if (el) el.textContent = '···';
+  fetchWeather(zone.lat, zone.lon).then(() => renderWeather());
 }
 
 // ─── Sky color interpolation ──────────────────────────────────────────────────
@@ -1092,18 +1143,18 @@ function tick(timestamp) {
       srLabel = `↑ ${formatLocalTime(st.rise, offsetMin)}`;
       ssLabel = `↓ ${formatLocalTime(st.set,  offsetMin)}`;
 
-      // Countdown to next event
-      let remainText;
+      // Countdown to next event + pct-remaining label
+      let dlPctText;
       if (isDay) {
         const rem = setLocal - localSecNow;
         statusText = `Sunset in ${fmtSec(rem)}`;
-        remainText = fmtSec(rem);
+        dlPctText  = `${(rem / dayLenSec * 100).toFixed(1)}% daylight remaining`;
       } else {
         const secToRise = localSecNow < riseLocal
           ? riseLocal - localSecNow
           : 86400 - localSecNow + riseLocal;
         statusText = `Dawn in ${fmtSec(secToRise)}`;
-        remainText = `in ${fmtSec(secToRise)}`;
+        dlPctText  = `${(secToRise / nightLenSec * 100).toFixed(1)}% night remaining`;
       }
 
       // Total daylight
@@ -1121,20 +1172,8 @@ function tick(timestamp) {
         vsYestStr = `${diff >= 0 ? '+' : '−'}${fmtSec(Math.abs(diff))}`;
       }
 
-      // Percentages
       const dayPct = (localSecNow / 86400 * 100).toFixed(2);
-      let dlPctText;
-      if (isDay) {
-        const rem = setLocal - localSecNow;
-        dlPctText = `${(rem / dayLenSec * 100).toFixed(2)}% daylight remaining`;
-      } else {
-        const secToRise = localSecNow < riseLocal
-          ? riseLocal - localSecNow
-          : 86400 - localSecNow + riseLocal;
-        dlPctText = `${(secToRise / nightLenSec * 100).toFixed(2)}% night remaining`;
-      }
 
-      document.getElementById(`remaining-${i}`).textContent = remainText;
       document.getElementById(`daylight-${i}`).textContent  = `${dlH}h ${pad(dlM)}m ${pad(dlS)}s`;
       document.getElementById(`noon-${i}`).textContent      = noonStr;
       document.getElementById(`utcoff-${i}`).textContent    = utcOffStr;
@@ -1152,7 +1191,7 @@ function tick(timestamp) {
       srLabel    = midnightSun ? 'Midnight sun' : 'Polar night';
       ssLabel    = '';
       statusText = '';
-      ['remaining','daylight','noon','golden','vsyest','daypct','dlpct'].forEach(k =>
+      ['daylight','noon','golden','vsyest','daypct','dlpct'].forEach(k =>
         document.getElementById(`${k}-${i}`).textContent = '–');
       document.getElementById(`progress-${i}`).style.width = '0%';
       document.getElementById(`utcoff-${i}`).textContent   = utcOffStr;
