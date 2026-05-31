@@ -82,8 +82,17 @@ body {
   font-size: 9px;
   letter-spacing: 1.5px;
   color: rgba(255,255,255,0.2);
-  margin-bottom: 20px;
+  margin-bottom: 6px;
   text-transform: uppercase;
+}
+.weather-row {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.38);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .time-display {
@@ -380,6 +389,7 @@ body {
     <div class="slot-content">
       <div class="city-label" id="city-0">–</div>
       <div class="region-label" id="region-0">–</div>
+      <div class="weather-row" id="weather-0">–</div>
       <div class="time-display">
         <span class="time-hms" id="hms-0">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-0">0000</span>
       </div>
@@ -413,6 +423,7 @@ body {
     <div class="slot-content">
       <div class="city-label" id="city-1">–</div>
       <div class="region-label" id="region-1">–</div>
+      <div class="weather-row" id="weather-1">–</div>
       <div class="time-display">
         <span class="time-hms" id="hms-1">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-1">0000</span>
       </div>
@@ -446,6 +457,7 @@ body {
     <div class="slot-content">
       <div class="city-label" id="city-2">–</div>
       <div class="region-label" id="region-2">–</div>
+      <div class="weather-row" id="weather-2">–</div>
       <div class="time-display">
         <span class="time-hms" id="hms-2">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-2">0000</span>
       </div>
@@ -709,6 +721,56 @@ function sunPosition(lat, lon, date) {
 const COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 function compassDir(az) { return COMPASS[Math.round(az / 22.5) % 16]; }
 
+// ─── Weather (Open-Meteo, free, no key) ──────────────────────────────────────
+const WMO_CODE = {
+  0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',
+  45:'Fog',48:'Icy fog',
+  51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',
+  61:'Light rain',63:'Rain',65:'Heavy rain',
+  71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow grains',
+  80:'Light showers',81:'Showers',82:'Heavy showers',
+  85:'Snow showers',86:'Heavy snow showers',
+  95:'Thunderstorm',96:'Thunderstorm+hail',99:'Thunderstorm+hail',
+};
+const weatherCache = {}; // key = "lat,lon" → {data, fetchedAt}
+
+async function fetchWeather(lat, lon) {
+  const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+  const now = Date.now();
+  if (weatherCache[key] && now - weatherCache[key].fetchedAt < 10 * 60 * 1000) {
+    return weatherCache[key].data;
+  }
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+      + `&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m`
+      + `&temperature_unit=celsius&windspeed_unit=kmh&timezone=auto`;
+    const r = await fetch(url);
+    const j = await r.json();
+    const c = j.current;
+    const tempC = Math.round(c.temperature_2m);
+    const tempF = Math.round(tempC * 9/5 + 32);
+    const cond  = WMO_CODE[c.weathercode] ?? 'Unknown';
+    const wind  = Math.round(c.windspeed_10m);
+    const hum   = Math.round(c.relativehumidity_2m);
+    const data  = { tempC, tempF, cond, wind, hum };
+    weatherCache[key] = { data, fetchedAt: now };
+    return data;
+  } catch { return null; }
+}
+
+// slot → last zone key so we re-fetch when city changes
+const weatherSlotKey = ['','',''];
+function refreshWeather(slotIdx, zone) {
+  const key = `${zone.lat.toFixed(2)},${zone.lon.toFixed(2)}`;
+  weatherSlotKey[slotIdx] = key;
+  document.getElementById(`weather-${slotIdx}`).textContent = '···';
+  fetchWeather(zone.lat, zone.lon).then(d => {
+    if (!d) { document.getElementById(`weather-${slotIdx}`).textContent = ''; return; }
+    document.getElementById(`weather-${slotIdx}`).textContent =
+      `${d.tempC}°C / ${d.tempF}°F  ·  ${d.cond}  ·  ${d.wind} km/h  ·  ${d.hum}% hum`;
+  });
+}
+
 // ─── Sky color interpolation ──────────────────────────────────────────────────
 // solarFrac: 0=sunrise, 0.5=noon, 1=sunset, <0=night before, >1=night after
 function hexToRgb(hex) {
@@ -892,6 +954,9 @@ function updateStaticLabels() {
     document.getElementById(`region-${i}`).textContent = z.region;
     const mobCity = document.getElementById(`mob-city-${i}`);
     if (mobCity) mobCity.textContent = z.city;
+    // Refresh weather if city changed
+    const key = `${z.lat.toFixed(2)},${z.lon.toFixed(2)}`;
+    if (weatherSlotKey[i] !== key) refreshWeather(i, z);
   }
 }
 
