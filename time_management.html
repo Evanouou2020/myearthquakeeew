@@ -642,6 +642,7 @@ input[type="color"] {
   <div class="panel" id="stopwatch-panel">
     <div class="panel-title">Stopwatch</div>
     <div id="sw-display">00:00.000</div>
+    <div id="sw-started-at" style="font-size:0.58rem;color:var(--text-faint);text-align:center;margin-top:2px;min-height:1em;letter-spacing:0.04em"></div>
     <div class="btn-row">
       <button class="btn primary" id="sw-start-btn" onclick="swToggle()">Start</button>
       <button class="btn" onclick="swLap()">Lap</button>
@@ -895,13 +896,25 @@ document.getElementById('sleep-time').addEventListener('change',e=>localStorage.
 // ══════════════════════════════════════
 // STOPWATCH
 // ══════════════════════════════════════
-let swRunning=false, swStart=0, swElapsed=0, swInterval=null, swLaps=[], swLapStart=0;
+let swRunning=false, swStart=0, swElapsed=0, swInterval=null, swLaps=[], swLapStart=0, swWallStart=null;
+
+function swUpdateStartedLabel(){
+  const el=document.getElementById('sw-started-at');
+  if(!el) return;
+  if(swWallStart){
+    const d=new Date(swWallStart);
+    el.textContent=`Started at ${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})} · ${d.toLocaleDateString([],{month:'short',day:'numeric'})}`;
+  } else {
+    el.textContent='';
+  }
+}
 
 function swSave(){
   localStorage.setItem('tm_sw', JSON.stringify({
     running: swRunning,
     elapsed: swRunning ? Date.now()-swStart : swElapsed,
     startedAt: swRunning ? swStart : null,
+    wallStart: swWallStart,
     lapStart: swLapStart,
     laps: swLaps
   }));
@@ -912,8 +925,8 @@ function swLoad(){
     if(!d) return;
     swLaps=d.laps||[];
     swLapStart=d.lapStart||0;
+    swWallStart=d.wallStart||null;
     if(d.running && d.startedAt){
-      // Was running — pick up where it left off
       swElapsed=Date.now()-d.startedAt;
       swStart=d.startedAt;
       swRunning=true;
@@ -926,6 +939,7 @@ function swLoad(){
       document.getElementById('sw-start-btn').className=swElapsed>0?'btn success':'btn primary';
     }
     document.getElementById('sw-display').textContent=fmtMs(swElapsed);
+    swUpdateStartedLabel();
     renderLaps();
   }catch(e){}
 }
@@ -934,10 +948,12 @@ function swToggle(){
   if(!swRunning){
     swStart=Date.now()-swElapsed;
     if(swLapStart===0) swLapStart=Date.now();
+    if(!swWallStart) swWallStart=Date.now();
     swInterval=setInterval(swTick,33);
     swRunning=true;
     document.getElementById('sw-start-btn').textContent='Pause';
     document.getElementById('sw-start-btn').className='btn danger';
+    swUpdateStartedLabel();
   } else {
     clearInterval(swInterval);
     swElapsed=Date.now()-swStart;
@@ -962,11 +978,12 @@ function swLap(){
 }
 function swReset(){
   clearInterval(swInterval);
-  swRunning=false; swElapsed=0; swStart=0; swLapStart=0; swLaps=[];
+  swRunning=false; swElapsed=0; swStart=0; swLapStart=0; swLaps=[]; swWallStart=null;
   localStorage.removeItem('tm_sw');
   document.getElementById('sw-display').textContent='00:00.000';
   document.getElementById('sw-start-btn').textContent='Start';
   document.getElementById('sw-start-btn').className='btn primary';
+  swUpdateStartedLabel();
   renderLaps();
 }
 function renderLaps(){
