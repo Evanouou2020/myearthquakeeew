@@ -460,6 +460,7 @@ let drLat=null, drLon=null, drHeading=null, drSpeedMs=null;
 let distRemainingKm=null, distTraveledKm=null, totalKm=null;
 let activeUnit='km', mapCentered=false, followPlane=false;
 let activeTZ=null;
+let lastFollowPan=0;
 
 // TZ options — built dynamically from flight data
 let tzOptions = {};
@@ -479,7 +480,20 @@ function projectPos(lat,lon,speedMs,hdg,sec){
   return [lat2*180/Math.PI,lon2*180/Math.PI];
 }
 
-// Great circle — antimeridian-aware (unwraps longitudes for correct Pacific routing)
+// Unwrap a [[lat,lon],...] path so longitudes are continuous (fixes antimeridian)
+function unwrapPath(pts){
+  if(!pts||pts.length<2) return pts;
+  const out=[[pts[0][0],pts[0][1]]];
+  for(let i=1;i<pts.length;i++){
+    let dlon=pts[i][1]-out[i-1][1];
+    if(dlon>180) dlon-=360;
+    if(dlon<-180) dlon+=360;
+    out.push([pts[i][0], out[i-1][1]+dlon]);
+  }
+  return out;
+}
+
+// Great circle — antimeridian-aware
 function greatCircle(lat1,lon1,lat2,lon2,steps=120){
   const R=Math.PI/180;
   const φ1=lat1*R,λ1=lon1*R,φ2=lat2*R,λ2=lon2*R;
@@ -493,15 +507,7 @@ function greatCircle(lat1,lon1,lat2,lon2,steps=120){
     const z=A*Math.sin(φ1)+B*Math.sin(φ2);
     raw.push([Math.atan2(z,Math.sqrt(x*x+y*y))/R, Math.atan2(y,x)/R]);
   }
-  // Unwrap longitudes so Leaflet draws across antimeridian correctly
-  const pts=[[raw[0][0],raw[0][1]]];
-  for(let i=1;i<raw.length;i++){
-    let dlon=raw[i][1]-pts[i-1][1];
-    if(dlon>180) dlon-=360;
-    if(dlon<-180) dlon+=360;
-    pts.push([raw[i][0], pts[i-1][1]+dlon]);
-  }
-  return pts;
+  return unwrapPath(raw);
 }
 
 function fmtTime(ts, tzName){
@@ -683,10 +689,11 @@ function render(d){
   document.getElementById('ph-text').textContent=phase+(d.status?' · '+d.status:'');
   document.getElementById('ph-dot').className='ph-dot '+cls;
 
-  // Map trail
+  // Map trail — unwrap for antimeridian
   if(d.waypoints?.length>1){
-    if(!trailLine) trailLine=L.polyline(d.waypoints,{color:'#4a7fff',weight:2.5,opacity:0.7}).addTo(map);
-    else trailLine.setLatLngs(d.waypoints);
+    const trail=unwrapPath(d.waypoints);
+    if(!trailLine) trailLine=L.polyline(trail,{color:'#4a7fff',weight:2.5,opacity:0.7}).addTo(map);
+    else trailLine.setLatLngs(trail);
   }
 
   // Projected path
@@ -760,14 +767,23 @@ function rafLoop(){
   if(drSpeedMs&&drSpeedMs>20&&drHeading!=null&&elapsed>0){
     [pLat,pLon]=projectPos(drLat,drLon,drSpeedMs,drHeading,elapsed);
     if(plane&&!lastData.on_ground) plane.setLatLng([pLat,pLon]);
-    if(followPlane) map.setView([pLat,pLon],map.getZoom(),{animate:true,duration:1});
+    // Follow: smooth pan centered on plane, throttled to once per second
+    if(followPlane){
+      const now=Date.now();
+      if(now-lastFollowPan>1000){
+        map.panTo([pLat,pLon],{animate:true,duration:0.8,easeLinearity:0.5,noMoveStart:true});
+        lastFollowPan=now;
+      }
+    }
 
     // Update projected path from current projected pos
     if(lastData.destination?.lat){
-      const rem=haversine(pLat,pLon,lastData.destination.lat,lastData.destination.lon);
+      // Normalize lon to [-180,180] for haversine/greatCircle
+      const nLon=((pLon+180)%360+360)%360-180;
+      const rem=haversine(pLat,nLon,lastData.destination.lat,lastData.destination.lon);
       distRemainingKm=rem;
       if(projLine){
-        projLine.setLatLngs(greatCircle(pLat,pLon,lastData.destination.lat,lastData.destination.lon));
+        projLine.setLatLngs(greatCircle(pLat,nLon,lastData.destination.lat,lastData.destination.lon));
       }
     }
   }
