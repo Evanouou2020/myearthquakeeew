@@ -65,8 +65,15 @@ body {
   font-size:0.65rem; color:#e6a020; border:1px solid rgba(230,160,32,0.4);
   border-radius:4px; padding:2px 7px; letter-spacing:0.06em; display:none;
 }
-#new-btn {
+#follow-btn {
   margin-left:auto; background:none; border:1px solid #252a38;
+  border-radius:5px; padding:5px 12px; color:#5a6070; font-size:0.72rem;
+  cursor:pointer; transition:all 0.15s;
+}
+#follow-btn.active { border-color:#3dd68c; color:#3dd68c; background:rgba(61,214,140,0.08); }
+#follow-btn:hover { border-color:#4a7fff; color:#4a7fff; }
+#new-btn {
+  background:none; border:1px solid #252a38;
   border-radius:5px; padding:5px 12px; color:#5a6070; font-size:0.72rem;
   cursor:pointer; transition:all 0.15s;
 }
@@ -304,6 +311,7 @@ body {
   <div class="tb-sep"></div>
   <span id="topbar-route">—</span>
   <span id="stale-badge">PROJECTED</span>
+  <button id="follow-btn" title="Follow plane">⊙ Follow</button>
   <button id="new-btn">New Session</button>
 </div>
 
@@ -450,7 +458,7 @@ let etaMinutes=null, totalMinutes=null;
 let sessionStart=null, lastData=null, lastPollTime=null;
 let drLat=null, drLon=null, drHeading=null, drSpeedMs=null;
 let distRemainingKm=null, distTraveledKm=null, totalKm=null;
-let activeUnit='km', mapCentered=false;
+let activeUnit='km', mapCentered=false, followPlane=false;
 let activeTZ=null;
 
 // TZ options — built dynamically from flight data
@@ -471,19 +479,27 @@ function projectPos(lat,lon,speedMs,hdg,sec){
   return [lat2*180/Math.PI,lon2*180/Math.PI];
 }
 
-// Great circle points from pos to dest
-function greatCircle(lat1,lon1,lat2,lon2,steps=80){
+// Great circle — antimeridian-aware (unwraps longitudes for correct Pacific routing)
+function greatCircle(lat1,lon1,lat2,lon2,steps=120){
   const R=Math.PI/180;
   const φ1=lat1*R,λ1=lon1*R,φ2=lat2*R,λ2=lon2*R;
   const d=2*Math.asin(Math.sqrt(Math.sin((φ2-φ1)/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin((λ2-λ1)/2)**2));
   if(d<0.0001) return [[lat1,lon1],[lat2,lon2]];
-  const pts=[];
+  const raw=[];
   for(let i=0;i<=steps;i++){
     const f=i/steps,A=Math.sin((1-f)*d)/Math.sin(d),B=Math.sin(f*d)/Math.sin(d);
     const x=A*Math.cos(φ1)*Math.cos(λ1)+B*Math.cos(φ2)*Math.cos(λ2);
     const y=A*Math.cos(φ1)*Math.sin(λ1)+B*Math.cos(φ2)*Math.sin(λ2);
     const z=A*Math.sin(φ1)+B*Math.sin(φ2);
-    pts.push([Math.atan2(z,Math.sqrt(x*x+y*y))/R,Math.atan2(y,x)/R]);
+    raw.push([Math.atan2(z,Math.sqrt(x*x+y*y))/R, Math.atan2(y,x)/R]);
+  }
+  // Unwrap longitudes so Leaflet draws across antimeridian correctly
+  const pts=[[raw[0][0],raw[0][1]]];
+  for(let i=1;i<raw.length;i++){
+    let dlon=raw[i][1]-pts[i-1][1];
+    if(dlon>180) dlon-=360;
+    if(dlon<-180) dlon+=360;
+    pts.push([raw[i][0], pts[i-1][1]+dlon]);
   }
   return pts;
 }
@@ -744,6 +760,7 @@ function rafLoop(){
   if(drSpeedMs&&drSpeedMs>20&&drHeading!=null&&elapsed>0){
     [pLat,pLon]=projectPos(drLat,drLon,drSpeedMs,drHeading,elapsed);
     if(plane&&!lastData.on_ground) plane.setLatLng([pLat,pLon]);
+    if(followPlane) map.setView([pLat,pLon],map.getZoom(),{animate:true,duration:1});
 
     // Update projected path from current projected pos
     if(lastData.destination?.lat){
@@ -866,6 +883,16 @@ function resetToSearch(){
   document.getElementById('timer').textContent='—h —m';
   document.getElementById('timer').className='';
 }
+
+document.getElementById('follow-btn').addEventListener('click',()=>{
+  followPlane=!followPlane;
+  document.getElementById('follow-btn').classList.toggle('active',followPlane);
+});
+// Dragging the map disables follow
+map.on('dragstart',()=>{
+  followPlane=false;
+  document.getElementById('follow-btn').classList.remove('active');
+});
 
 document.getElementById('new-btn').addEventListener('click',resetToSearch);
 document.getElementById('new-session-btn').addEventListener('click',resetToSearch);
