@@ -386,6 +386,7 @@ body {
       <div class="date-display" id="date-0">–</div>
       <div class="sun-arc-wrap" id="arc-wrap-0">
         <svg viewBox="0 0 200 110" id="arc-svg-0"></svg>
+        <svg viewBox="0 0 200 105" id="night-arc-svg-0" style="margin-top:-4px"></svg>
         <div class="sun-row">
           <div class="sun-time-label" id="sr-label-0">–</div>
           <div class="sun-status-label" id="sun-status-0">–</div>
@@ -419,6 +420,7 @@ body {
       <div class="date-display" id="date-1">–</div>
       <div class="sun-arc-wrap" id="arc-wrap-1">
         <svg viewBox="0 0 200 110" id="arc-svg-1"></svg>
+        <svg viewBox="0 0 200 105" id="night-arc-svg-1" style="margin-top:-4px"></svg>
         <div class="sun-row">
           <div class="sun-time-label" id="sr-label-1">–</div>
           <div class="sun-status-label" id="sun-status-1">–</div>
@@ -452,6 +454,7 @@ body {
       <div class="date-display" id="date-2">–</div>
       <div class="sun-arc-wrap" id="arc-wrap-2">
         <svg viewBox="0 0 200 110" id="arc-svg-2"></svg>
+        <svg viewBox="0 0 200 105" id="night-arc-svg-2" style="margin-top:-4px"></svg>
         <div class="sun-row">
           <div class="sun-time-label" id="sr-label-2">–</div>
           <div class="sun-status-label" id="sun-status-2">–</div>
@@ -802,6 +805,43 @@ function buildArc(svgEl, solarFrac, sunriseLabel, sunsetLabel) {
   `;
 }
 
+// ─── Night arc (downward semicircle) ─────────────────────────────────────────
+const NCX = 100, NCY = 2, NR = 90;
+
+function buildNightArc(svgEl, nightFrac, isNight) {
+  // nightFrac: 0=sunset(right), 0.5=midnight(bottom), 1=sunrise(left)
+  const angle = Math.PI * Math.max(0, Math.min(1, nightFrac));
+  const mx = NCX + NR * Math.cos(angle);
+  const my = NCY + NR * Math.sin(angle);
+  const largeArc = nightFrac > 0.5 ? 1 : 0;
+
+  svgEl.innerHTML = `
+    <!-- night arc path -->
+    <path d="M ${NCX+NR} ${NCY} A ${NR} ${NR} 0 0 0 ${NCX-NR} ${NCY}"
+      fill="none" stroke="rgba(150,180,255,${isNight ? '0.18' : '0.07'})" stroke-width="1.5"
+      stroke-dasharray="${isNight ? 'none' : '4 4'}"/>
+    <!-- MIDNIGHT label -->
+    <text x="${NCX}" y="${NCY + NR + 14}" text-anchor="middle"
+      font-size="7" fill="rgba(150,180,255,${isNight ? '0.35' : '0.15'})"
+      font-family="monospace" letter-spacing="2">MIDNIGHT</text>
+    <!-- horizon end ticks -->
+    <line x1="${NCX-NR}" y1="${NCY-4}" x2="${NCX-NR}" y2="${NCY+4}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+    <line x1="${NCX+NR}" y1="${NCY-4}" x2="${NCX+NR}" y2="${NCY+4}" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+    ${isNight ? `
+      ${nightFrac > 0 && nightFrac < 1 ? `
+      <path d="M ${NCX+NR} ${NCY} A ${NR} ${NR} 0 ${largeArc} 0 ${mx.toFixed(2)} ${my.toFixed(2)}"
+        fill="none" stroke="rgba(180,205,255,0.35)" stroke-width="1.5"/>` : ''}
+      <!-- moon crescent -->
+      <circle cx="${mx.toFixed(2)}" cy="${my.toFixed(2)}" r="9" fill="rgba(200,220,255,0.07)"/>
+      <circle cx="${mx.toFixed(2)}" cy="${my.toFixed(2)}" r="5.5" fill="rgba(225,235,255,0.88)"/>
+      <circle cx="${(mx+2).toFixed(2)}" cy="${(my-2).toFixed(2)}" r="4" fill="rgba(8,12,28,0.92)"/>
+    ` : `
+      <!-- faint reference dot -->
+      <circle cx="${mx.toFixed(2)}" cy="${my.toFixed(2)}" r="2" fill="rgba(150,180,255,0.12)"/>
+    `}
+  `;
+}
+
 // ─── Formatters ──────────────────────────────────────────────────────────────
 const fmtHMS = (tz) => new Intl.DateTimeFormat('en-US', {
   timeZone: tz, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
@@ -987,6 +1027,7 @@ function tick(timestamp) {
     document.getElementById(`date-${i}`).textContent = fmtDate(z.tz).format(now);
 
     let solarFrac = 0.5;
+    let nightFrac = 0.5, isNightTime = false;
     let srLabel = '–', ssLabel = '–', statusText = '–';
 
     // UTC offset string (needed in both branches)
@@ -1006,6 +1047,17 @@ function tick(timestamp) {
       const nightLenSec = 86400 - dayLenSec;
 
       const isDay = localSecNow >= riseLocal && localSecNow <= setLocal;
+      isNightTime = !isDay;
+
+      // Night fraction: 0=sunset(right), 0.5=midnight(bottom), 1=sunrise(left)
+      if (isNightTime) {
+        const secIntoNight = localSecNow > setLocal
+          ? localSecNow - setLocal
+          : (86400 - setLocal) + localSecNow;
+        nightFrac = Math.max(0, Math.min(1, secIntoNight / nightLenSec));
+      } else {
+        nightFrac = 0.5; // daytime: faint reference at midnight position
+      }
 
       // Solar fraction for gradient/arc
       if (isDay) {
@@ -1087,6 +1139,7 @@ function tick(timestamp) {
 
     document.getElementById(`bg-${i}`).style.background   = skyGradient(solarFrac);
     buildArc(document.getElementById(`arc-svg-${i}`), solarFrac);
+    buildNightArc(document.getElementById(`night-arc-svg-${i}`), nightFrac, isNightTime);
     document.getElementById(`sr-label-${i}`).textContent   = srLabel;
     document.getElementById(`ss-label-${i}`).textContent   = ssLabel;
     document.getElementById(`sun-status-${i}`).textContent = statusText;
