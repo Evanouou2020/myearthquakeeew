@@ -989,34 +989,47 @@ function tick(timestamp) {
     let solarFrac = 0.5;
     let srLabel = '–', ssLabel = '–', statusText = '–';
 
-    if (st) {
-      const localSec    = utcSec + offsetMin * 60;
-      const riseLocalSec = st.rise * 60 + offsetMin * 60;
-      const setLocalSec  = st.set  * 60 + offsetMin * 60;
-      const dayLenSec    = Math.round((st.set - st.rise) * 60);
+    // UTC offset string (needed in both branches)
+    const offSign = offsetMin >= 0 ? '+' : '−';
+    const offHr   = Math.floor(Math.abs(offsetMin) / 60);
+    const offMn   = Math.abs(offsetMin) % 60;
+    const utcOffStr = `UTC ${offSign}${offHr}${offMn ? ':' + pad(offMn) : ''}`;
 
-      solarFrac = (localSec - riseLocalSec) / (setLocalSec - riseLocalSec);
+    if (st) {
+      // ── All times normalised to local seconds-from-midnight [0, 86400) ──────
+      const wrap = s => ((s % 86400) + 86400) % 86400;
+      const localSecNow = wrap(utcSec + offsetMin * 60);
+      const riseLocal   = wrap(Math.round(st.rise * 60) + offsetMin * 60);
+      const setLocal    = wrap(Math.round(st.set  * 60) + offsetMin * 60);
+      // day length from raw (unwrapped) diff — always positive
+      const dayLenSec   = Math.max(1, Math.round((st.set - st.rise) * 60));
+      const nightLenSec = 86400 - dayLenSec;
+
+      const isDay = localSecNow >= riseLocal && localSecNow <= setLocal;
+
+      // Solar fraction for gradient/arc
+      if (isDay) {
+        solarFrac = (localSecNow - riseLocal) / dayLenSec;
+      } else if (localSecNow < riseLocal) {
+        solarFrac = -(riseLocal - localSecNow) / dayLenSec;   // negative = pre-dawn
+      } else {
+        solarFrac = 1 + (localSecNow - setLocal) / dayLenSec; // > 1 = post-sunset
+      }
 
       srLabel = `↑ ${formatLocalTime(st.rise, offsetMin)}`;
       ssLabel = `↓ ${formatLocalTime(st.set,  offsetMin)}`;
 
-      // Status countdown with seconds
-      if (solarFrac < 0) {
-        const sec = (riseLocalSec - localSec + 86400) % 86400;
-        statusText = `Dawn in ${fmtSec(sec)}`;
-      } else if (solarFrac <= 1) {
-        statusText = `Sunset in ${fmtSec(setLocalSec - localSec)}`;
-      } else {
-        const sec = (riseLocalSec + 86400 - localSec + 86400) % 86400;
-        statusText = `Dawn in ${fmtSec(sec)}`;
-      }
-
-      // Remaining daylight (with seconds)
+      // Countdown to next event
       let remainText;
-      if (solarFrac >= 0 && solarFrac <= 1) {
-        remainText = fmtSec(setLocalSec - localSec);
+      if (isDay) {
+        const rem = setLocal - localSecNow;
+        statusText = `Sunset in ${fmtSec(rem)}`;
+        remainText = fmtSec(rem);
       } else {
-        const secToRise = (riseLocalSec - localSec + 86400) % 86400;
+        const secToRise = localSecNow < riseLocal
+          ? riseLocal - localSecNow
+          : 86400 - localSecNow + riseLocal;
+        statusText = `Dawn in ${fmtSec(secToRise)}`;
         remainText = `in ${fmtSec(secToRise)}`;
       }
 
@@ -1025,32 +1038,28 @@ function tick(timestamp) {
       const dlM = Math.floor((dayLenSec % 3600) / 60);
       const dlS = dayLenSec % 60;
 
-      // Solar noon
-      const noonStr = formatLocalTime((st.rise + st.set) / 2, offsetMin);
-
-      // UTC offset
-      const offSign = offsetMin >= 0 ? '+' : '−';
-      const offH = Math.floor(Math.abs(offsetMin) / 60);
-      const offM = Math.abs(offsetMin) % 60;
-      const utcOffStr = `UTC ${offSign}${offH}${offM ? ':' + pad(offM) : ''}`;
-
-      // Golden hour windows
-      const mgS = formatLocalTime(st.rise,      offsetMin);
-      const mgE = formatLocalTime(st.rise + 60, offsetMin);
-      const egS = formatLocalTime(st.set - 60,  offsetMin);
-      const egE = formatLocalTime(st.set,        offsetMin);
-      const goldenStr = `${mgS}–${mgE}  ·  ${egS}–${egE}`;
-
-      // vs yesterday
+      // Solar noon, golden hour, vs-yesterday
+      const noonStr   = formatLocalTime((st.rise + st.set) / 2, offsetMin);
+      const goldenStr = `${formatLocalTime(st.rise,      offsetMin)}–${formatLocalTime(st.rise + 60, offsetMin)}`
+                      + `  ·  ${formatLocalTime(st.set - 60, offsetMin)}–${formatLocalTime(st.set, offsetMin)}`;
       let vsYestStr = '–';
       if (yestLenSec !== null) {
         const diff = dayLenSec - yestLenSec;
-        const sign = diff >= 0 ? '+' : '−';
-        vsYestStr = `${sign}${fmtSec(Math.abs(diff))}`;
+        vsYestStr = `${diff >= 0 ? '+' : '−'}${fmtSec(Math.abs(diff))}`;
       }
 
-      // Progress bar
-      const pct = Math.max(0, Math.min(100, solarFrac * 100)).toFixed(1);
+      // Percentages
+      const dayPct = (localSecNow / 86400 * 100).toFixed(2);
+      let dlPctText;
+      if (isDay) {
+        const rem = setLocal - localSecNow;
+        dlPctText = `${(rem / dayLenSec * 100).toFixed(2)}% daylight remaining`;
+      } else {
+        const secToRise = localSecNow < riseLocal
+          ? riseLocal - localSecNow
+          : 86400 - localSecNow + riseLocal;
+        dlPctText = `${(secToRise / nightLenSec * 100).toFixed(2)}% night remaining`;
+      }
 
       document.getElementById(`remaining-${i}`).textContent = remainText;
       document.getElementById(`daylight-${i}`).textContent  = `${dlH}h ${pad(dlM)}m ${pad(dlS)}s`;
@@ -1058,22 +1067,22 @@ function tick(timestamp) {
       document.getElementById(`utcoff-${i}`).textContent    = utcOffStr;
       document.getElementById(`golden-${i}`).textContent    = goldenStr;
       document.getElementById(`vsyest-${i}`).textContent    = vsYestStr;
-      document.getElementById(`progress-${i}`).style.width  = `${pct}%`;
+      document.getElementById(`progress-${i}`).style.width  = `${Math.max(0, Math.min(100, solarFrac * 100)).toFixed(1)}%`;
+      document.getElementById(`daypct-${i}`).textContent    = `${dayPct}% of 24h elapsed`;
+      document.getElementById(`dlpct-${i}`).textContent     = dlPctText;
     } else {
-      solarFrac = z.lat > 0 ? 0.5 : -0.5;
-      srLabel   = 'Polar';
-      ssLabel   = z.lat > 66 ? 'Midnight sun' : 'Polar night';
+      // Polar region — detect midnight sun vs polar night
+      const cosHA = Math.cos(90.833 * Math.PI/180) / (Math.cos(z.lat * Math.PI/180) * Math.cos(0))
+                  - Math.tan(z.lat * Math.PI/180) * 0;
+      const midnightSun = cosHA < -1;
+      solarFrac  = midnightSun ? 0.5 : -0.5;
+      srLabel    = midnightSun ? 'Midnight sun' : 'Polar night';
+      ssLabel    = '';
       statusText = '';
-      document.getElementById(`remaining-${i}`).textContent = '–';
-      document.getElementById(`daylight-${i}`).textContent  = '–';
-      document.getElementById(`noon-${i}`).textContent      = '–';
-      document.getElementById(`golden-${i}`).textContent    = '–';
-      document.getElementById(`vsyest-${i}`).textContent    = '–';
-      document.getElementById(`progress-${i}`).style.width  = '0%';
-      const offSign = offsetMin >= 0 ? '+' : '−';
-      const offH = Math.floor(Math.abs(offsetMin) / 60);
-      const offM = Math.abs(offsetMin) % 60;
-      document.getElementById(`utcoff-${i}`).textContent = `UTC ${offSign}${offH}${offM ? ':' + pad(offM) : ''}`;
+      ['remaining','daylight','noon','golden','vsyest','daypct','dlpct'].forEach(k =>
+        document.getElementById(`${k}-${i}`).textContent = '–');
+      document.getElementById(`progress-${i}`).style.width = '0%';
+      document.getElementById(`utcoff-${i}`).textContent   = utcOffStr;
     }
 
     document.getElementById(`bg-${i}`).style.background   = skyGradient(solarFrac);
@@ -1090,39 +1099,6 @@ function tick(timestamp) {
     document.getElementById(`azim-${i}`).textContent =
       `${pos.azimuth.toFixed(2)}°  ${compassDir(pos.azimuth)}`;
 
-    // Percentages (computed from localSec if st is available)
-    if (st) {
-      const localSec    = utcSec + offsetMin * 60;
-      const localSecDay = ((localSec % 86400) + 86400) % 86400;
-      const riseLocalSec = ((st.rise * 60 + offsetMin * 60) % 86400 + 86400) % 86400;
-      const setLocalSec  = ((st.set  * 60 + offsetMin * 60) % 86400 + 86400) % 86400;
-      const dayLenSec    = Math.round((st.set - st.rise) * 60);
-      const nightLenSec  = 86400 - dayLenSec;
-
-      // % of 24h day elapsed
-      const dayPct = (localSecDay / 86400 * 100).toFixed(2);
-
-      // daylight / nighttime remaining %
-      let dlPctText;
-      if (localSecDay >= riseLocalSec && localSecDay <= setLocalSec) {
-        const rem = setLocalSec - localSecDay;
-        const pct = (rem / dayLenSec * 100).toFixed(2);
-        dlPctText = `${pct}% daylight remaining`;
-      } else {
-        // seconds until next sunrise
-        const secToRise = localSecDay < riseLocalSec
-          ? riseLocalSec - localSecDay
-          : 86400 - localSecDay + riseLocalSec;
-        const pct = (secToRise / nightLenSec * 100).toFixed(2);
-        dlPctText = `${pct}% night remaining`;
-      }
-
-      document.getElementById(`daypct-${i}`).textContent = `${dayPct}% of 24h elapsed`;
-      document.getElementById(`dlpct-${i}`).textContent  = dlPctText;
-    } else {
-      document.getElementById(`daypct-${i}`).textContent = '–';
-      document.getElementById(`dlpct-${i}`).textContent  = '–';
-    }
   }
 
   // Update mobile tab times (every second is fine — throttle by ms)
