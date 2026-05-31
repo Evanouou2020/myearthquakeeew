@@ -523,13 +523,18 @@ function greatCircle(lat1,lon1,lat2,lon2,steps=120){
   return pts; // raw [-180,180]; caller uses splitAntimeridian
 }
 
-// Set a polyline group (array of L.polyline) or create them
+// Render segments on center + left + right world copies (tiles infinitely)
 function setPolylineGroup(group, segments, style, addTo){
-  // Remove extras
-  while(group.length>segments.length){ map.removeLayer(group.pop()); }
-  segments.forEach((seg,i)=>{
+  const allSegs=[];
+  [-360,0,360].forEach(offset=>{
+    segments.forEach(seg=>{
+      allSegs.push(seg.map(([lat,lon])=>[lat,lon+offset]));
+    });
+  });
+  while(group.length>allSegs.length) map.removeLayer(group.pop());
+  allSegs.forEach((seg,i)=>{
     if(group[i]) group[i].setLatLngs(seg);
-    else { group[i]=L.polyline(seg,style).addTo(addTo); }
+    else group[i]=L.polyline(seg,style).addTo(addTo);
   });
 }
 
@@ -742,7 +747,16 @@ function render(d){
   if(d.lat&&d.lon){
     if(!plane) plane=L.marker([d.lat,d.lon],{icon:planeIcon(d.heading||0),zIndexOffset:1000}).addTo(map);
     else{ plane.setLatLng([d.lat,d.lon]); plane.setIcon(planeIcon(d.heading||0)); }
-    if(!mapCentered){map.setView([d.lat,d.lon],5);mapCentered=true;}
+    if(!mapCentered){
+      // Center on great circle midpoint so the full arc is visible
+      if(orig?.lat&&dest?.lat){
+        const mid=greatCircle(orig.lat,orig.lon,dest.lat,dest.lon,2)[1]; // f=0.5 point
+        map.setView([mid[0],mid[1]],3);
+      } else {
+        map.setView([d.lat,d.lon],5);
+      }
+      mapCentered=true;
+    }
   }
 
   if(d.on_ground&&sessionStart&&(Date.now()-sessionStart)>180000){handleLanded(d.callsign);}
