@@ -917,12 +917,11 @@ function buildArc(svgEl, solarFrac, nightFrac) {
         fill="none" stroke="rgba(200,215,255,0.28)" stroke-width="1.5"/>`;
     }
 
-    // Moon crescent: bright disc + dark overlay offset
+    // Moon: glowing disc
     dotSvg = `
-      <circle cx="${dx.toFixed(2)}" cy="${dy.toFixed(2)}" r="11" fill="rgba(180,200,255,0.06)"/>
-      <circle cx="${dx.toFixed(2)}" cy="${dy.toFixed(2)}" r="7"  fill="rgba(220,232,255,0.12)"/>
-      <circle cx="${dx.toFixed(2)}" cy="${dy.toFixed(2)}" r="5.5" fill="rgba(230,238,255,0.88)"/>
-      <circle cx="${(dx+2.2).toFixed(2)}" cy="${(dy-2.2).toFixed(2)}" r="4.2" fill="rgba(8,10,22,0.92)"/>`;
+      <circle cx="${dx.toFixed(2)}" cy="${dy.toFixed(2)}" r="13" fill="rgba(180,200,255,0.05)"/>
+      <circle cx="${dx.toFixed(2)}" cy="${dy.toFixed(2)}" r="9"  fill="rgba(210,225,255,0.10)"/>
+      <circle cx="${dx.toFixed(2)}" cy="${dy.toFixed(2)}" r="5.5" fill="rgba(228,236,255,0.90)"/>`;
   } else {
     // Sun: f=0 (sunrise/left) → f=1 (sunset/right)
     const f = Math.max(0, Math.min(1, solarFrac));
