@@ -954,8 +954,7 @@ function buildArc(svgEl, solarFrac, nightFrac) {
 
     // Trail from left end (sunset) to current moon position
     if (nf > 0.01 && nf < 0.99) {
-      const largeArc = nf > 0.5 ? 1 : 0;
-      trailSvg = `<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${largeArc} 1 ${dx.toFixed(2)} ${dy.toFixed(2)}"
+      trailSvg = `<path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${dx.toFixed(2)} ${dy.toFixed(2)}"
         fill="none" stroke="rgba(200,215,255,0.28)" stroke-width="1.5"/>`;
     }
 
@@ -974,8 +973,7 @@ function buildArc(svgEl, solarFrac, nightFrac) {
 
     // Travelled trail from sunrise to current sun position
     if (f > 0.01 && f < 0.99) {
-      const largeArc = f > 0.5 ? 1 : 0;
-      trailSvg = `<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${largeArc} 1 ${dx.toFixed(2)} ${dy.toFixed(2)}"
+      trailSvg = `<path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${dx.toFixed(2)} ${dy.toFixed(2)}"
         fill="none" stroke="rgba(255,230,120,0.3)" stroke-width="1.5"/>`;
     }
 
