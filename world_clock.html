@@ -1335,7 +1335,28 @@ function tick(timestamp) {
       solarFrac  = midnightSun ? 0.5 : -0.5;
       srLabel    = midnightSun ? '☀ Midnight sun' : '● Polar night';
       ssLabel    = '';
-      statusText = midnightSun ? 'Sun does not set' : 'Sun does not rise';
+      // Find next day when polar status changes (sun sets / sun rises)
+      let polarDaysLeft = null, polarNextTime = null;
+      for (let dd = 1; dd <= 180; dd++) {
+        const futDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + dd));
+        const fut = sunTimes(z.lat, z.lon, futDate);
+        if (fut !== null) {
+          polarDaysLeft = dd;
+          const eventMinUTC = midnightSun ? fut.set : fut.rise;
+          const eventMinLocal = eventMinUTC + (offsetMin ?? 0);
+          const hh = Math.floor(((eventMinLocal % 1440) + 1440) % 1440 / 60);
+          const mm = Math.floor(((eventMinLocal % 1440) + 1440) % 1440 % 60);
+          polarNextTime = `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+          break;
+        }
+      }
+      if (polarDaysLeft !== null) {
+        const evtLabel = midnightSun ? 'First sunset' : 'First sunrise';
+        statusText = midnightSun ? `Sun does not set  ·  ${evtLabel} in ${polarDaysLeft}d at ${polarNextTime}`
+                                 : `Sun does not rise  ·  ${evtLabel} in ${polarDaysLeft}d at ${polarNextTime}`;
+      } else {
+        statusText = midnightSun ? 'Sun does not set' : 'Sun does not rise';
+      }
       ['daylight','noon','golden','vsyest','daypct','dlpct'].forEach(k =>
         document.getElementById(`${k}-${i}`).textContent = '–');
       document.getElementById(`twi-${i}`).textContent = '';
