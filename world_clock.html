@@ -1179,7 +1179,7 @@ function tick(timestamp) {
       }
 
       // Night fraction: 0=just after sunset(right), 0.5=midnight(top), 1=just before sunrise(left)
-      let nightFrac = null;
+      nightFrac = null;
       if (!isDay) {
         const secIntoNight = localSecNow > setLocal
           ? localSecNow - setLocal
