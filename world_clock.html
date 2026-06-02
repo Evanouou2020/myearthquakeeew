@@ -432,6 +432,7 @@ body {
           <div class="sun-time-label" id="ss-label-0">–</div>
         </div>
         <div class="sun-pct-label" id="dlpct-0">–</div>
+        <div class="sun-pct-label" id="twi-0" style="opacity:0.7">–</div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-0" style="width:0%"></div></div>
         <div class="stats-list">
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-0">–</span></div>
@@ -465,6 +466,7 @@ body {
           <div class="sun-time-label" id="ss-label-1">–</div>
         </div>
         <div class="sun-pct-label" id="dlpct-1">–</div>
+        <div class="sun-pct-label" id="twi-1" style="opacity:0.7">–</div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-1" style="width:0%"></div></div>
         <div class="stats-list">
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-1">–</span></div>
@@ -498,6 +500,7 @@ body {
           <div class="sun-time-label" id="ss-label-2">–</div>
         </div>
         <div class="sun-pct-label" id="dlpct-2">–</div>
+        <div class="sun-pct-label" id="twi-2" style="opacity:0.7">–</div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-2" style="width:0%"></div></div>
         <div class="stats-list">
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-2">–</span></div>
@@ -667,9 +670,10 @@ const ZONES = [
   { city:'UTC',            region:'Coordinated Universal Time',   tz:'UTC',                   lat:51.48,  lon:0       },
 ];
 
-// ─── Sunrise / sunset ────────────────────────────────────────────────────────
+// ─── Sunrise / sunset / twilight ─────────────────────────────────────────────
 // Returns { rise, set } as minutes-from-midnight UTC, or null if polar day/night.
-function sunTimes(lat, lon, date) {
+// zenith: 90.833 = sunrise/sunset, 96 = civil twilight, 102 = nautical, 108 = astronomical
+function sunTimes(lat, lon, date, zenith = 90.833) {
   const D = Math.floor((Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) -
     Date.UTC(date.getUTCFullYear(), 0, 0)) / 864e5);
   const p = Math.PI / 180;
@@ -680,10 +684,10 @@ function sunTimes(lat, lon, date) {
   const decl = 0.006918 - 0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma)
     - 0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma)
     - 0.002697 * Math.cos(3 * gamma) + 0.00148  * Math.sin(3 * gamma);
-  const cosHA = (Math.cos(90.833 * p) / (Math.cos(lat * p) * Math.cos(decl)))
+  const cosHA = (Math.cos(zenith * p) / (Math.cos(lat * p) * Math.cos(decl)))
     - Math.tan(lat * p) * Math.tan(decl);
   if (cosHA > 1)  return null; // polar night
-  if (cosHA < -1) return null; // midnight sun — treat as always up
+  if (cosHA < -1) return null; // midnight sun
   const ha = Math.acos(cosHA) / p;
   const noon = 720 - 4 * lon - eqtime;
   return { rise: noon - ha * 4, set: noon + ha * 4 };
@@ -1065,12 +1069,13 @@ function getSun(zone, date) {
   const dateStr = `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;
   const key = zone.tz + dateStr;
   if (!sunCache[key]) {
-    const st = sunTimes(zone.lat, zone.lon, date);
-    const off = getTzOffsetMin(zone.tz, date);
+    const st   = sunTimes(zone.lat, zone.lon, date);
+    const civ  = sunTimes(zone.lat, zone.lon, date, 96);   // civil twilight
+    const off  = getTzOffsetMin(zone.tz, date);
     const yest = new Date(date.getTime() - 864e5);
-    const stY = sunTimes(zone.lat, zone.lon, yest);
+    const stY  = sunTimes(zone.lat, zone.lon, yest);
     const yestLenSec = stY ? Math.round((stY.set - stY.rise) * 60) : null;
-    sunCache[key] = { st, offsetMin: off, yestLenSec };
+    sunCache[key] = { st, civ, offsetMin: off, yestLenSec };
     if (Object.keys(sunCache).length > 30) delete sunCache[Object.keys(sunCache)[0]];
   }
   return sunCache[key];
@@ -1103,7 +1108,7 @@ function tick(timestamp) {
 
   for (let i = 0; i < 3; i++) {
     const z = zoneFor(selected[i]);
-    const { st, offsetMin, yestLenSec } = getSun(z, now);
+    const { st, civ, offsetMin, yestLenSec } = getSun(z, now);
 
     // Time display
     document.getElementById(`hms-${i}`).textContent  = fmtHMS(z.tz).format(now).replace(/^24/, '00');
@@ -1182,6 +1187,25 @@ function tick(timestamp) {
       document.getElementById(`progress-${i}`).style.width  = `${Math.max(0, Math.min(100, solarFrac * 100)).toFixed(1)}%`;
       document.getElementById(`daypct-${i}`).textContent    = `${dayPct}% of 24h elapsed`;
       document.getElementById(`dlpct-${i}`).textContent     = dlPctText;
+
+      // Twilight countdown (civil twilight = 96° zenith)
+      let twiText = '';
+      if (civ) {
+        const wrap = s => ((s % 86400) + 86400) % 86400;
+        const civRise = wrap(Math.round(civ.rise * 60) + offsetMin * 60); // first light
+        const civSet  = wrap(Math.round(civ.set  * 60) + offsetMin * 60); // last light
+        const lsn = wrap(utcSec + offsetMin * 60);
+        if (isDay) {
+          // daytime → show time until last light (civil dusk)
+          const secToLastLight = civSet > lsn ? civSet - lsn : 86400 - lsn + civSet;
+          twiText = `last light in ${fmtSec(secToLastLight)}`;
+        } else {
+          // nighttime → show time until first light (civil dawn)
+          const secToFirstLight = civRise > lsn ? civRise - lsn : 86400 - lsn + civRise;
+          twiText = `first light in ${fmtSec(secToFirstLight)}`;
+        }
+      }
+      document.getElementById(`twi-${i}`).textContent = twiText;
     } else {
       // Polar region — detect midnight sun vs polar night
       const cosHA = Math.cos(90.833 * Math.PI/180) / (Math.cos(z.lat * Math.PI/180) * Math.cos(0))
@@ -1193,6 +1217,7 @@ function tick(timestamp) {
       statusText = '';
       ['daylight','noon','golden','vsyest','daypct','dlpct'].forEach(k =>
         document.getElementById(`${k}-${i}`).textContent = '–');
+      document.getElementById(`twi-${i}`).textContent = '';
       document.getElementById(`progress-${i}`).style.width = '0%';
       document.getElementById(`utcoff-${i}`).textContent   = utcOffStr;
     }
