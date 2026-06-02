@@ -217,6 +217,44 @@ body {
 }
 .stat-val.hi { color: rgba(255,255,255,0.6); }
 
+/* Collapsible stats */
+.stats-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  width: 100%;
+  padding: 8px 0 4px;
+  cursor: pointer;
+  color: rgba(255,255,255,0.2);
+  font-family: var(--font);
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-align: left;
+  margin-top: 10px;
+}
+.stats-toggle:hover { color: rgba(255,255,255,0.45); }
+.stats-toggle .arrow { transition: transform 0.2s; display: inline-block; }
+.stats-toggle.open .arrow { transform: rotate(180deg); }
+.stats-body {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 6px;
+}
+.stats-body.open { display: flex; }
+.stats-section-lbl {
+  font-size: 7px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.12);
+  text-transform: uppercase;
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+
 /* Picker overlay */
 #picker-overlay {
   position: fixed;
@@ -434,15 +472,32 @@ body {
         <div class="sun-pct-label" id="dlpct-0">–</div>
         <div class="sun-pct-label" id="twi-0" style="opacity:0.7">–</div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-0" style="width:0%"></div></div>
-        <div class="stats-list">
+        <button class="stats-toggle" id="stats-btn-0" onclick="toggleStats(0)">
+          <span class="arrow">▾</span> Details
+        </button>
+        <div class="stats-body" id="stats-body-0">
+          <div class="stats-section-lbl">Daylight</div>
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-0">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-0">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-0">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Golden hour</span><span class="stat-val" id="golden-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">vs yesterday</span><span class="stat-val" id="vsyest-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Golden hour AM</span><span class="stat-val" id="golden-am-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Golden hour PM</span><span class="stat-val" id="golden-pm-0">–</span></div>
+          <div class="stats-section-lbl">Twilight</div>
+          <div class="stat-row"><span class="stat-lbl">First light</span><span class="stat-val" id="firstlight-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Sunrise</span><span class="stat-val" id="sunrise-t-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Sunset</span><span class="stat-val" id="sunset-t-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Last light</span><span class="stat-val" id="lastlight-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Nautical dawn</span><span class="stat-val" id="naut-dawn-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Nautical dusk</span><span class="stat-val" id="naut-dusk-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Astro dawn</span><span class="stat-val" id="astro-dawn-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Astro dusk</span><span class="stat-val" id="astro-dusk-0">–</span></div>
+          <div class="stats-section-lbl">Sun position</div>
           <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-0">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-0">–</span></div>
+          <div class="stats-section-lbl">Zone</div>
+          <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Coords</span><span class="stat-val" id="coords-0">–</span></div>
         </div>
       </div>
     </div>
@@ -468,15 +523,32 @@ body {
         <div class="sun-pct-label" id="dlpct-1">–</div>
         <div class="sun-pct-label" id="twi-1" style="opacity:0.7">–</div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-1" style="width:0%"></div></div>
-        <div class="stats-list">
+        <button class="stats-toggle" id="stats-btn-1" onclick="toggleStats(1)">
+          <span class="arrow">▾</span> Details
+        </button>
+        <div class="stats-body" id="stats-body-1">
+          <div class="stats-section-lbl">Daylight</div>
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-1">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-1">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-1">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Golden hour</span><span class="stat-val" id="golden-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">vs yesterday</span><span class="stat-val" id="vsyest-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Golden hour AM</span><span class="stat-val" id="golden-am-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Golden hour PM</span><span class="stat-val" id="golden-pm-1">–</span></div>
+          <div class="stats-section-lbl">Twilight</div>
+          <div class="stat-row"><span class="stat-lbl">First light</span><span class="stat-val" id="firstlight-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Sunrise</span><span class="stat-val" id="sunrise-t-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Sunset</span><span class="stat-val" id="sunset-t-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Last light</span><span class="stat-val" id="lastlight-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Nautical dawn</span><span class="stat-val" id="naut-dawn-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Nautical dusk</span><span class="stat-val" id="naut-dusk-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Astro dawn</span><span class="stat-val" id="astro-dawn-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Astro dusk</span><span class="stat-val" id="astro-dusk-1">–</span></div>
+          <div class="stats-section-lbl">Sun position</div>
           <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-1">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-1">–</span></div>
+          <div class="stats-section-lbl">Zone</div>
+          <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Coords</span><span class="stat-val" id="coords-1">–</span></div>
         </div>
       </div>
     </div>
@@ -502,15 +574,32 @@ body {
         <div class="sun-pct-label" id="dlpct-2">–</div>
         <div class="sun-pct-label" id="twi-2" style="opacity:0.7">–</div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-2" style="width:0%"></div></div>
-        <div class="stats-list">
+        <button class="stats-toggle" id="stats-btn-2" onclick="toggleStats(2)">
+          <span class="arrow">▾</span> Details
+        </button>
+        <div class="stats-body" id="stats-body-2">
+          <div class="stats-section-lbl">Daylight</div>
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-2">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-2">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-2">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Golden hour</span><span class="stat-val" id="golden-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">vs yesterday</span><span class="stat-val" id="vsyest-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Golden hour AM</span><span class="stat-val" id="golden-am-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Golden hour PM</span><span class="stat-val" id="golden-pm-2">–</span></div>
+          <div class="stats-section-lbl">Twilight</div>
+          <div class="stat-row"><span class="stat-lbl">First light</span><span class="stat-val" id="firstlight-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Sunrise</span><span class="stat-val" id="sunrise-t-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Sunset</span><span class="stat-val" id="sunset-t-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Last light</span><span class="stat-val" id="lastlight-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Nautical dawn</span><span class="stat-val" id="naut-dawn-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Nautical dusk</span><span class="stat-val" id="naut-dusk-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Astro dawn</span><span class="stat-val" id="astro-dawn-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Astro dusk</span><span class="stat-val" id="astro-dusk-2">–</span></div>
+          <div class="stats-section-lbl">Sun position</div>
           <div class="stat-row"><span class="stat-lbl">Elevation</span><span class="stat-val" id="elev-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Azimuth</span><span class="stat-val" id="azim-2">–</span></div>
-          <div class="stat-row"><span class="stat-lbl">Day elapsed</span><span class="stat-val" id="daypct-2">–</span></div>
+          <div class="stats-section-lbl">Zone</div>
+          <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Coords</span><span class="stat-val" id="coords-2">–</span></div>
         </div>
       </div>
     </div>
@@ -1062,6 +1151,13 @@ function switchMobTab(idx) {
 
 function isMobile() { return window.innerWidth <= 768; }
 
+function toggleStats(i) {
+  const btn  = document.getElementById(`stats-btn-${i}`);
+  const body = document.getElementById(`stats-body-${i}`);
+  const open = body.classList.toggle('open');
+  btn.classList.toggle('open', open);
+}
+
 // ─── Main render loop ─────────────────────────────────────────────────────────
 let sunCache = {};
 
@@ -1071,11 +1167,13 @@ function getSun(zone, date) {
   if (!sunCache[key]) {
     const st   = sunTimes(zone.lat, zone.lon, date);
     const civ  = sunTimes(zone.lat, zone.lon, date, 96);   // civil twilight
+    const naut = sunTimes(zone.lat, zone.lon, date, 102);  // nautical twilight
+    const astr = sunTimes(zone.lat, zone.lon, date, 108);  // astronomical twilight
     const off  = getTzOffsetMin(zone.tz, date);
     const yest = new Date(date.getTime() - 864e5);
     const stY  = sunTimes(zone.lat, zone.lon, yest);
     const yestLenSec = stY ? Math.round((stY.set - stY.rise) * 60) : null;
-    sunCache[key] = { st, civ, offsetMin: off, yestLenSec };
+    sunCache[key] = { st, civ, naut, astr, offsetMin: off, yestLenSec };
     if (Object.keys(sunCache).length > 30) delete sunCache[Object.keys(sunCache)[0]];
   }
   return sunCache[key];
@@ -1108,7 +1206,7 @@ function tick(timestamp) {
 
   for (let i = 0; i < 3; i++) {
     const z = zoneFor(selected[i]);
-    const { st, civ, offsetMin, yestLenSec } = getSun(z, now);
+    const { st, civ, naut, astr, offsetMin, yestLenSec } = getSun(z, now);
 
     // Time display
     document.getElementById(`hms-${i}`).textContent  = fmtHMS(z.tz).format(now).replace(/^24/, '00');
@@ -1148,18 +1246,43 @@ function tick(timestamp) {
       srLabel = `↑ ${formatLocalTime(st.rise, offsetMin)}`;
       ssLabel = `↓ ${formatLocalTime(st.set,  offsetMin)}`;
 
-      // Countdown to next event + pct-remaining label
+      const wrap2 = s => ((s % 86400) + 86400) % 86400;
+      const fmtTwi = (utcMin) => utcMin != null ? formatLocalTime(utcMin, offsetMin) : '–';
+
+      // Twilight local times
+      const civRiseSec  = civ  ? wrap2(Math.round(civ.rise  * 60) + offsetMin * 60) : null;
+      const civSetSec   = civ  ? wrap2(Math.round(civ.set   * 60) + offsetMin * 60) : null;
+      const nautRiseSec = naut ? wrap2(Math.round(naut.rise * 60) + offsetMin * 60) : null;
+      const nautSetSec  = naut ? wrap2(Math.round(naut.set  * 60) + offsetMin * 60) : null;
+      const astrRiseSec = astr ? wrap2(Math.round(astr.rise * 60) + offsetMin * 60) : null;
+      const astrSetSec  = astr ? wrap2(Math.round(astr.set  * 60) + offsetMin * 60) : null;
+
+      // Countdown to next event — with inline percentage
       let dlPctText;
       if (isDay) {
         const rem = setLocal - localSecNow;
-        statusText = `Sunset in ${fmtSec(rem)}`;
-        dlPctText  = `${(rem / dayLenSec * 100).toFixed(1)}% daylight remaining`;
+        const pct = (rem / dayLenSec * 100).toFixed(1);
+        statusText = `Sunset in ${fmtSec(rem)}  ·  ${pct}% daylight left`;
+        dlPctText  = `${pct}% daylight remaining`;
       } else {
         const secToRise = localSecNow < riseLocal
           ? riseLocal - localSecNow
           : 86400 - localSecNow + riseLocal;
-        statusText = `Dawn in ${fmtSec(secToRise)}`;
-        dlPctText  = `${(secToRise / nightLenSec * 100).toFixed(1)}% night remaining`;
+        const pct = (secToRise / nightLenSec * 100).toFixed(1);
+        statusText = `Dawn in ${fmtSec(secToRise)}  ·  ${pct}% night left`;
+        dlPctText  = `${pct}% night remaining`;
+      }
+
+      // Twilight countdown line (first/last light + time)
+      let twiText = '';
+      if (civ) {
+        if (isDay) {
+          const secToLastLight = civSetSec > localSecNow ? civSetSec - localSecNow : 86400 - localSecNow + civSetSec;
+          twiText = `last light ${fmtTwi(civ.set)}  ·  in ${fmtSec(secToLastLight)}`;
+        } else {
+          const secToFirstLight = civRiseSec > localSecNow ? civRiseSec - localSecNow : 86400 - localSecNow + civRiseSec;
+          twiText = `first light ${fmtTwi(civ.rise)}  ·  in ${fmtSec(secToFirstLight)}`;
+        }
       }
 
       // Total daylight
@@ -1167,45 +1290,36 @@ function tick(timestamp) {
       const dlM = Math.floor((dayLenSec % 3600) / 60);
       const dlS = dayLenSec % 60;
 
-      // Solar noon, golden hour, vs-yesterday
-      const noonStr   = formatLocalTime((st.rise + st.set) / 2, offsetMin);
-      const goldenStr = `${formatLocalTime(st.rise,      offsetMin)}–${formatLocalTime(st.rise + 60, offsetMin)}`
-                      + `  ·  ${formatLocalTime(st.set - 60, offsetMin)}–${formatLocalTime(st.set, offsetMin)}`;
+      // Solar noon, golden hours, vs-yesterday
+      const noonStr    = formatLocalTime((st.rise + st.set) / 2, offsetMin);
+      const goldenAmStr = `${formatLocalTime(st.rise, offsetMin)} – ${formatLocalTime(st.rise + 60, offsetMin)}`;
+      const goldenPmStr = `${formatLocalTime(st.set - 60, offsetMin)} – ${formatLocalTime(st.set, offsetMin)}`;
       let vsYestStr = '–';
       if (yestLenSec !== null) {
         const diff = dayLenSec - yestLenSec;
         vsYestStr = `${diff >= 0 ? '+' : '−'}${fmtSec(Math.abs(diff))}`;
       }
-
       const dayPct = (localSecNow / 86400 * 100).toFixed(2);
 
-      document.getElementById(`daylight-${i}`).textContent  = `${dlH}h ${pad(dlM)}m ${pad(dlS)}s`;
-      document.getElementById(`noon-${i}`).textContent      = noonStr;
-      document.getElementById(`utcoff-${i}`).textContent    = utcOffStr;
-      document.getElementById(`golden-${i}`).textContent    = goldenStr;
-      document.getElementById(`vsyest-${i}`).textContent    = vsYestStr;
-      document.getElementById(`progress-${i}`).style.width  = `${Math.max(0, Math.min(100, solarFrac * 100)).toFixed(1)}%`;
-      document.getElementById(`daypct-${i}`).textContent    = `${dayPct}% of 24h elapsed`;
-      document.getElementById(`dlpct-${i}`).textContent     = dlPctText;
-
-      // Twilight countdown (civil twilight = 96° zenith)
-      let twiText = '';
-      if (civ) {
-        const wrap = s => ((s % 86400) + 86400) % 86400;
-        const civRise = wrap(Math.round(civ.rise * 60) + offsetMin * 60); // first light
-        const civSet  = wrap(Math.round(civ.set  * 60) + offsetMin * 60); // last light
-        const lsn = wrap(utcSec + offsetMin * 60);
-        if (isDay) {
-          // daytime → show time until last light (civil dusk)
-          const secToLastLight = civSet > lsn ? civSet - lsn : 86400 - lsn + civSet;
-          twiText = `last light in ${fmtSec(secToLastLight)}`;
-        } else {
-          // nighttime → show time until first light (civil dawn)
-          const secToFirstLight = civRise > lsn ? civRise - lsn : 86400 - lsn + civRise;
-          twiText = `first light in ${fmtSec(secToFirstLight)}`;
-        }
-      }
-      document.getElementById(`twi-${i}`).textContent = twiText;
+      document.getElementById(`daylight-${i}`).textContent   = `${dlH}h ${pad(dlM)}m ${pad(dlS)}s`;
+      document.getElementById(`noon-${i}`).textContent       = noonStr;
+      document.getElementById(`utcoff-${i}`).textContent     = utcOffStr;
+      document.getElementById(`golden-am-${i}`).textContent  = goldenAmStr;
+      document.getElementById(`golden-pm-${i}`).textContent  = goldenPmStr;
+      document.getElementById(`vsyest-${i}`).textContent     = vsYestStr;
+      document.getElementById(`progress-${i}`).style.width   = `${Math.max(0, Math.min(100, solarFrac * 100)).toFixed(1)}%`;
+      document.getElementById(`daypct-${i}`).textContent     = `${dayPct}% of 24h elapsed`;
+      document.getElementById(`dlpct-${i}`).textContent      = dlPctText;
+      document.getElementById(`twi-${i}`).textContent        = twiText;
+      document.getElementById(`firstlight-${i}`).textContent = civ  ? fmtTwi(civ.rise)  : '–';
+      document.getElementById(`lastlight-${i}`).textContent  = civ  ? fmtTwi(civ.set)   : '–';
+      document.getElementById(`sunrise-t-${i}`).textContent  = formatLocalTime(st.rise, offsetMin);
+      document.getElementById(`sunset-t-${i}`).textContent   = formatLocalTime(st.set,  offsetMin);
+      document.getElementById(`naut-dawn-${i}`).textContent  = naut ? fmtTwi(naut.rise) : 'N/A';
+      document.getElementById(`naut-dusk-${i}`).textContent  = naut ? fmtTwi(naut.set)  : 'N/A';
+      document.getElementById(`astro-dawn-${i}`).textContent = astr ? fmtTwi(astr.rise) : 'N/A';
+      document.getElementById(`astro-dusk-${i}`).textContent = astr ? fmtTwi(astr.set)  : 'N/A';
+      document.getElementById(`coords-${i}`).textContent     = `${z.lat.toFixed(2)}°, ${z.lon.toFixed(2)}°`;
     } else {
       // Polar region — detect midnight sun vs polar night
       const cosHA = Math.cos(90.833 * Math.PI/180) / (Math.cos(z.lat * Math.PI/180) * Math.cos(0))
@@ -1215,8 +1329,9 @@ function tick(timestamp) {
       srLabel    = midnightSun ? 'Midnight sun' : 'Polar night';
       ssLabel    = '';
       statusText = '';
-      ['daylight','noon','golden','vsyest','daypct','dlpct'].forEach(k =>
-        document.getElementById(`${k}-${i}`).textContent = '–');
+      ['daylight','noon','golden-am','golden-pm','vsyest','daypct','dlpct',
+       'firstlight','lastlight','sunrise-t','sunset-t','naut-dawn','naut-dusk','astro-dawn','astro-dusk','coords'
+      ].forEach(k => { const el = document.getElementById(`${k}-${i}`); if (el) el.textContent = '–'; });
       document.getElementById(`twi-${i}`).textContent = '';
       document.getElementById(`progress-${i}`).style.width = '0%';
       document.getElementById(`utcoff-${i}`).textContent   = utcOffStr;
