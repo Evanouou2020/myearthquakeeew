@@ -675,6 +675,49 @@ const ZONES = [
   { city:'Vladivostok',    region:'Russia — Far East',            tz:'Asia/Vladivostok',      lat:43.12,  lon:131.89  },
   { city:'Yekaterinburg',  region:'Russia — Urals',               tz:'Asia/Yekaterinburg',    lat:56.84,  lon:60.60   },
   { city:'UTC',            region:'Coordinated Universal Time',   tz:'UTC',                   lat:51.48,  lon:0       },
+  // Arctic / extreme latitude
+  { city:'Utqiaġvik',     region:'United States — Alaska (Arctic)', tz:'America/Anchorage',  lat:71.29,  lon:-156.79 },
+  { city:'Tromsø',        region:'Norway — Arctic',               tz:'Europe/Oslo',           lat:69.65,  lon:18.96   },
+  { city:'Longyearbyen',  region:'Svalbard',                      tz:'Arctic/Longyearbyen',   lat:78.22,  lon:15.65   },
+  { city:'Murmansk',      region:'Russia — Arctic',               tz:'Europe/Moscow',         lat:68.97,  lon:33.07   },
+  { city:'Fairbanks',     region:'United States — Alaska',        tz:'America/Anchorage',     lat:64.84,  lon:-147.72 },
+  { city:'Yellowknife',   region:'Canada — Northwest Territories',tz:'America/Yellowknife',   lat:62.45,  lon:-114.37 },
+  // North America additions
+  { city:'Seattle',       region:'United States — Pacific NW',    tz:'America/Los_Angeles',   lat:47.61,  lon:-122.33 },
+  { city:'Phoenix',       region:'United States — Arizona',       tz:'America/Phoenix',       lat:33.45,  lon:-112.07 },
+  { city:'Miami',         region:'United States — Florida',       tz:'America/New_York',      lat:25.77,  lon:-80.19  },
+  { city:'Atlanta',       region:'United States — Georgia',       tz:'America/New_York',      lat:33.75,  lon:-84.39  },
+  { city:'Dallas',        region:'United States — Texas',         tz:'America/Chicago',       lat:32.78,  lon:-96.80  },
+  { city:'Houston',       region:'United States — Texas',         tz:'America/Chicago',       lat:29.76,  lon:-95.37  },
+  { city:'Minneapolis',   region:'United States — Minnesota',     tz:'America/Chicago',       lat:44.98,  lon:-93.27  },
+  { city:'Las Vegas',     region:'United States — Nevada',        tz:'America/Los_Angeles',   lat:36.17,  lon:-115.14 },
+  { city:'Juneau',        region:'United States — Alaska',        tz:'America/Juneau',        lat:58.30,  lon:-134.42 },
+  { city:'Montreal',      region:'Canada — Quebec',               tz:'America/Toronto',       lat:45.50,  lon:-73.57  },
+  { city:'Calgary',       region:'Canada — Alberta',              tz:'America/Edmonton',      lat:51.05,  lon:-114.07 },
+  { city:'Halifax',       region:'Canada — Atlantic',             tz:'America/Halifax',       lat:44.65,  lon:-63.60  },
+  { city:'Bogotá',        region:'Colombia',                      tz:'America/Bogota',        lat:4.71,   lon:-74.07  },
+  { city:'Lima',          region:'Peru',                          tz:'America/Lima',          lat:-12.05, lon:-77.04  },
+  { city:'Santiago',      region:'Chile',                         tz:'America/Santiago',      lat:-33.45, lon:-70.67  },
+  { city:'Caracas',       region:'Venezuela',                     tz:'America/Caracas',       lat:10.48,  lon:-66.88  },
+  // Africa additions
+  { city:'Kinshasa',      region:'DR Congo',                      tz:'Africa/Kinshasa',       lat:-4.32,  lon:15.32   },
+  { city:'Abidjan',       region:'Côte d\'Ivoire',                tz:'Africa/Abidjan',        lat:5.35,   lon:-4.00   },
+  { city:'Dakar',         region:'Senegal',                       tz:'Africa/Dakar',          lat:14.72,  lon:-17.47  },
+  // Central Asia / Middle East additions
+  { city:'Baku',          region:'Azerbaijan',                    tz:'Asia/Baku',             lat:40.41,  lon:49.87   },
+  { city:'Tbilisi',       region:'Georgia',                       tz:'Asia/Tbilisi',          lat:41.69,  lon:44.83   },
+  { city:'Yerevan',       region:'Armenia',                       tz:'Asia/Yerevan',          lat:40.18,  lon:44.51   },
+  { city:'Ashgabat',      region:'Turkmenistan',                  tz:'Asia/Ashgabat',         lat:37.95,  lon:58.38   },
+  // Asia additions
+  { city:'Colombo',       region:'Sri Lanka',                     tz:'Asia/Colombo',          lat:6.93,   lon:79.85   },
+  { city:'Phnom Penh',    region:'Cambodia',                      tz:'Asia/Phnom_Penh',       lat:11.56,  lon:104.93  },
+  { city:'Vientiane',     region:'Laos',                         tz:'Asia/Vientiane',        lat:17.97,  lon:102.60  },
+  { city:'Bishkek',       region:'Kyrgyzstan',                    tz:'Asia/Bishkek',          lat:42.87,  lon:74.59   },
+  { city:'Dushanbe',      region:'Tajikistan',                    tz:'Asia/Dushanbe',         lat:38.56,  lon:68.77   },
+  // Pacific / Oceania additions
+  { city:'Nuku\'alofa',   region:'Tonga',                         tz:'Pacific/Tongatapu',     lat:-21.14, lon:-175.22 },
+  { city:'Honiara',       region:'Solomon Islands',               tz:'Pacific/Guadalcanal',   lat:-9.43,  lon:160.03  },
+  { city:'Tarawa',        region:'Kiribati',                      tz:'Pacific/Tarawa',        lat:1.33,   lon:172.98  },
 ];
 
 // ─── Sunrise / sunset / twilight ─────────────────────────────────────────────
@@ -903,17 +946,16 @@ function buildArc(svgEl, solarFrac, nightFrac) {
   let dx, dy, dotSvg, trailSvg = '';
 
   if (isNight) {
-    // Moon travels right→top→left as nightFrac goes 0→0.5→1
+    // Moon travels left→top→right as nightFrac goes 0→0.5→1 (sunset on left, sunrise on right)
     const nf = Math.max(0, Math.min(1, nightFrac));
-    const angle = Math.PI * nf;
+    const angle = Math.PI * (1 - nf); // same direction as sun
     dx = cx + r * Math.cos(angle);
     dy = cy - r * Math.sin(angle);
 
-    // Trail from right end to current moon position
+    // Trail from left end (sunset) to current moon position
     if (nf > 0.01 && nf < 0.99) {
       const largeArc = nf > 0.5 ? 1 : 0;
-      // Trail arc: from (cx+r, cy) clockwise to (dx, dy) — sweep=0 goes right→top→left
-      trailSvg = `<path d="M ${cx+r} ${cy} A ${r} ${r} 0 ${largeArc} 0 ${dx.toFixed(2)} ${dy.toFixed(2)}"
+      trailSvg = `<path d="M ${cx-r} ${cy} A ${r} ${r} 0 ${largeArc} 1 ${dx.toFixed(2)} ${dy.toFixed(2)}"
         fill="none" stroke="rgba(200,215,255,0.28)" stroke-width="1.5"/>`;
     }
 
