@@ -1022,11 +1022,22 @@ function fmtDuration(totalMin) {
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const LOCAL_KEY = 'worldclock_slots';
-let selected = JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null')
-  || ['America/Los_Angeles', 'Europe/London', 'Asia/Tokyo'];
+// stored as city name (unique key) — migrate old tz-based values
+function migrateSlots(raw) {
+  if (!raw) return ['San Ramon','London','Tokyo'];
+  return raw.map(v => {
+    // if it looks like a tz string (contains '/'), convert to first matching city
+    if (v.includes('/') || v === 'UTC') {
+      const z = ZONES.find(z => z.tz === v);
+      return z ? z.city : 'San Ramon';
+    }
+    return v;
+  });
+}
+let selected = migrateSlots(JSON.parse(localStorage.getItem(LOCAL_KEY) || 'null'));
 
-function zoneFor(tz) {
-  return ZONES.find(z => z.tz === tz) || ZONES[0];
+function zoneFor(city) {
+  return ZONES.find(z => z.city === city) || ZONES[0];
 }
 
 let pickerSlot = null;
@@ -1066,7 +1077,7 @@ function renderPickerList(q) {
     : ZONES;
   list.innerHTML = filtered.map((z, i) => {
     const t = fmtHM(z.tz).format(now).replace(/^24/, '00');
-    return `<div class="picker-item" onclick="selectZone('${z.tz}')">
+    return `<div class="picker-item" onclick="selectZone('${z.city.replace(/'/g,"\\'")}')">
       <div class="picker-left">
         <div class="picker-city">${z.city}</div>
         <div class="picker-region">${z.region}</div>
@@ -1310,14 +1321,21 @@ function tick(timestamp) {
       }
       document.getElementById(`twi-${i}`).textContent = twiText;
     } else {
-      // Polar region — detect midnight sun vs polar night
-      const cosHA = Math.cos(90.833 * Math.PI/180) / (Math.cos(z.lat * Math.PI/180) * Math.cos(0))
-                  - Math.tan(z.lat * Math.PI/180) * 0;
-      const midnightSun = cosHA < -1;
+      // Polar region — re-compute cosHA with actual declination to distinguish midnight sun vs polar night
+      const D2 = Math.floor((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) -
+        Date.UTC(now.getUTCFullYear(), 0, 0)) / 864e5);
+      const g2  = 2 * Math.PI / 365 * (D2 - 1);
+      const dec2 = 0.006918 - 0.399912*Math.cos(g2) + 0.070257*Math.sin(g2)
+        - 0.006758*Math.cos(2*g2) + 0.000907*Math.sin(2*g2)
+        - 0.002697*Math.cos(3*g2) + 0.00148*Math.sin(3*g2);
+      const p2 = Math.PI / 180;
+      const cosHA2 = (Math.cos(90.833 * p2) / (Math.cos(z.lat * p2) * Math.cos(dec2)))
+        - Math.tan(z.lat * p2) * Math.tan(dec2);
+      const midnightSun = cosHA2 < -1;
       solarFrac  = midnightSun ? 0.5 : -0.5;
-      srLabel    = midnightSun ? 'Midnight sun' : 'Polar night';
+      srLabel    = midnightSun ? '☀ Midnight sun' : '● Polar night';
       ssLabel    = '';
-      statusText = '';
+      statusText = midnightSun ? 'Sun does not set' : 'Sun does not rise';
       ['daylight','noon','golden','vsyest','daypct','dlpct'].forEach(k =>
         document.getElementById(`${k}-${i}`).textContent = '–');
       document.getElementById(`twi-${i}`).textContent = '';
