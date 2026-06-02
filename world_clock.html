@@ -30,7 +30,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 36px 28px 32px;
+  padding: 24px 28px 28px;
   border-right: 1px solid rgba(255,255,255,0.04);
   transition: background 4s ease;
 }
@@ -89,7 +89,7 @@ body {
   font-size: 10px;
   letter-spacing: 0.8px;
   color: rgba(255,255,255,0.38);
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -139,7 +139,7 @@ body {
   font-size: 10px;
   letter-spacing: 1.5px;
   color: rgba(255,255,255,0.28);
-  margin-bottom: 28px;
+  margin-bottom: 14px;
   text-transform: uppercase;
 }
 
@@ -173,8 +173,75 @@ body {
   color: rgba(255,255,255,0.22);
   text-align: center;
   margin-top: 3px;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 }
+.sun-pct-label.hide { display: none; }
+
+/* Time scrubber */
+.scrubber-wrap {
+  position: relative;
+  margin: 8px 0 4px;
+}
+.time-scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 1px;
+  outline: none;
+  cursor: ew-resize;
+}
+.time-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.7);
+  cursor: ew-resize;
+  transition: background 0.15s;
+}
+.time-scrubber::-webkit-slider-thumb:hover { background: #fff; }
+.time-scrubber::-moz-range-thumb {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.7);
+  border: none; cursor: ew-resize;
+}
+.sim-badge {
+  position: absolute;
+  top: 8px; right: 0;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,180,0.7);
+  pointer-events: none;
+  display: none;
+}
+.sim-badge.active { display: block; }
+.sim-time-display {
+  font-size: clamp(11px, 1.4vw, 18px);
+  font-weight: 200;
+  color: rgba(255,255,180,0.75);
+  letter-spacing: 2px;
+  margin-bottom: 3px;
+  display: none;
+}
+.sim-time-display.active { display: block; }
+.live-btn {
+  position: absolute;
+  top: -1px; right: 0;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,180,0.6);
+  background: none;
+  border: 1px solid rgba(255,255,180,0.3);
+  border-radius: 2px;
+  padding: 1px 5px;
+  cursor: pointer;
+  font-family: var(--font);
+  display: none;
+}
+.live-btn.active { display: block; }
+.live-btn:hover { color: rgba(255,255,180,1); border-color: rgba(255,255,180,0.7); }
 .progress-wrap {
   height: 2px;
   background: rgba(255,255,255,0.07);
@@ -458,6 +525,7 @@ body {
       <div class="city-label" id="city-0">–</div>
       <div class="region-label" id="region-0">–</div>
       <div class="weather-row" id="weather-0"><span class="weather-text" id="weather-text-0">–</span><button class="cf-toggle" id="cf-btn" onclick="toggleCF()">°C</button></div>
+      <div class="sim-time-display" id="sim-time-0"></div>
       <div class="time-display">
         <span class="time-hms" id="hms-0">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-0">0000</span>
       </div>
@@ -469,8 +537,13 @@ body {
           <div class="sun-status-label" id="sun-status-0">–</div>
           <div class="sun-time-label" id="ss-label-0">–</div>
         </div>
-        <div class="sun-pct-label" id="dlpct-0">–</div>
+        <div class="sun-pct-label hide" id="dlpct-0">–</div>
         <div class="sun-pct-label" id="twi-0" style="opacity:0.7">–</div>
+        <div class="scrubber-wrap">
+          <input type="range" class="time-scrubber" id="scrubber-0" min="0" max="1440" step="1"
+            oninput="onScrub(0,this.value)" onchange="onScrub(0,this.value)">
+          <button class="live-btn" id="live-btn-0" onclick="resetSim(0)">↺ LIVE</button>
+        </div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-0" style="width:0%"></div></div>
         <button class="stats-toggle" id="stats-btn-0" onclick="toggleStats(0)">
           <span class="arrow">▾</span> Details
@@ -509,6 +582,7 @@ body {
       <div class="city-label" id="city-1">–</div>
       <div class="region-label" id="region-1">–</div>
       <div class="weather-row" id="weather-1"><span class="weather-text" id="weather-text-1">–</span></div>
+      <div class="sim-time-display" id="sim-time-1"></div>
       <div class="time-display">
         <span class="time-hms" id="hms-1">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-1">0000</span>
       </div>
@@ -520,8 +594,13 @@ body {
           <div class="sun-status-label" id="sun-status-1">–</div>
           <div class="sun-time-label" id="ss-label-1">–</div>
         </div>
-        <div class="sun-pct-label" id="dlpct-1">–</div>
+        <div class="sun-pct-label hide" id="dlpct-1">–</div>
         <div class="sun-pct-label" id="twi-1" style="opacity:0.7">–</div>
+        <div class="scrubber-wrap">
+          <input type="range" class="time-scrubber" id="scrubber-1" min="0" max="1440" step="1"
+            oninput="onScrub(1,this.value)" onchange="onScrub(1,this.value)">
+          <button class="live-btn" id="live-btn-1" onclick="resetSim(1)">↺ LIVE</button>
+        </div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-1" style="width:0%"></div></div>
         <button class="stats-toggle" id="stats-btn-1" onclick="toggleStats(1)">
           <span class="arrow">▾</span> Details
@@ -560,6 +639,7 @@ body {
       <div class="city-label" id="city-2">–</div>
       <div class="region-label" id="region-2">–</div>
       <div class="weather-row" id="weather-2"><span class="weather-text" id="weather-text-2">–</span></div>
+      <div class="sim-time-display" id="sim-time-2"></div>
       <div class="time-display">
         <span class="time-hms" id="hms-2">–</span><span class="time-dot">.</span><span class="time-frac" id="frac-2">0000</span>
       </div>
@@ -571,8 +651,13 @@ body {
           <div class="sun-status-label" id="sun-status-2">–</div>
           <div class="sun-time-label" id="ss-label-2">–</div>
         </div>
-        <div class="sun-pct-label" id="dlpct-2">–</div>
+        <div class="sun-pct-label hide" id="dlpct-2">–</div>
         <div class="sun-pct-label" id="twi-2" style="opacity:0.7">–</div>
+        <div class="scrubber-wrap">
+          <input type="range" class="time-scrubber" id="scrubber-2" min="0" max="1440" step="1"
+            oninput="onScrub(2,this.value)" onchange="onScrub(2,this.value)">
+          <button class="live-btn" id="live-btn-2" onclick="resetSim(2)">↺ LIVE</button>
+        </div>
         <div class="progress-wrap"><div class="progress-fill" id="progress-2" style="width:0%"></div></div>
         <button class="stats-toggle" id="stats-btn-2" onclick="toggleStats(2)">
           <span class="arrow">▾</span> Details
@@ -1158,6 +1243,64 @@ function toggleStats(i) {
   btn.classList.toggle('open', open);
 }
 
+// ─── Time scrubber / simulation ───────────────────────────────────────────────
+// simMin[i] = local minutes override (null = live)
+const simMin = [null, null, null];
+
+function onScrub(i, val) {
+  simMin[i] = parseInt(val, 10);
+  document.getElementById(`live-btn-${i}`).classList.add('active');
+  const z = zoneFor(selected[i]);
+  const { st, offsetMin } = getSun(z, new Date());
+  // Show simulated local time
+  const h = Math.floor(simMin[i] / 60), m = simMin[i] % 60;
+  const simEl = document.getElementById(`sim-time-${i}`);
+  simEl.textContent = `${pad(h)}:${pad(m)}`;
+  simEl.classList.add('active');
+  // Immediately update arc + bg using simulated solar fraction
+  updateSimVisuals(i, z, st, offsetMin);
+}
+
+function updateSimVisuals(i, z, st, offsetMin) {
+  if (simMin[i] === null || !st) return;
+  const localSecSim = simMin[i] * 60;
+  const wrap = s => ((s % 86400) + 86400) % 86400;
+  const riseLocal = wrap(Math.round(st.rise * 60) + offsetMin * 60);
+  const setLocal  = wrap(Math.round(st.set  * 60) + offsetMin * 60);
+  const dayLenSec = Math.max(1, Math.round((st.set - st.rise) * 60));
+  let sf;
+  if (localSecSim >= riseLocal && localSecSim <= setLocal) {
+    sf = (localSecSim - riseLocal) / dayLenSec;
+  } else if (localSecSim < riseLocal) {
+    sf = -(riseLocal - localSecSim) / dayLenSec;
+  } else {
+    sf = 1 + (localSecSim - setLocal) / dayLenSec;
+  }
+  document.getElementById(`bg-${i}`).style.background = skyGradient(sf);
+  buildArc(document.getElementById(`arc-svg-${i}`), sf);
+  buildNightArc(document.getElementById(`night-arc-svg-${i}`), sf < 0 || sf > 1 ? 0.5 : 0.5, sf < 0 || sf > 1);
+}
+
+function resetSim(i) {
+  simMin[i] = null;
+  document.getElementById(`live-btn-${i}`).classList.remove('active');
+  const simEl = document.getElementById(`sim-time-${i}`);
+  simEl.classList.remove('active');
+  // reset scrubber to current local time
+  const z = zoneFor(selected[i]);
+  syncScrubber(i, z);
+}
+
+function syncScrubber(i, z) {
+  if (simMin[i] !== null) return; // user is scrubbing
+  const now = new Date();
+  const { offsetMin } = getSun(z, now);
+  const utcS = now.getUTCHours()*3600 + now.getUTCMinutes()*60 + now.getUTCSeconds();
+  const wrap = s => ((s % 86400) + 86400) % 86400;
+  const localMin = Math.floor(wrap(utcS + offsetMin * 60) / 60);
+  document.getElementById(`scrubber-${i}`).value = localMin;
+}
+
 // ─── Main render loop ─────────────────────────────────────────────────────────
 let sunCache = {};
 
@@ -1273,13 +1416,19 @@ function tick(timestamp) {
         dlPctText  = `${pct}% night remaining`;
       }
 
-      // Twilight countdown line (first/last light + time)
+      // Twilight countdown line — handle civil twilight window correctly
       let twiText = '';
       if (civ) {
         if (isDay) {
+          // daytime: count down to last light (civil dusk)
           const secToLastLight = civSetSec > localSecNow ? civSetSec - localSecNow : 86400 - localSecNow + civSetSec;
           twiText = `last light ${fmtTwi(civ.set)}  ·  in ${fmtSec(secToLastLight)}`;
+        } else if (civRiseSec !== null && localSecNow >= civRiseSec && localSecNow < riseLocal) {
+          // civil twilight window: first light already passed, awaiting sunrise
+          const secToRise = riseLocal - localSecNow;
+          twiText = `first light passed ${fmtTwi(civ.rise)}  ·  sunrise in ${fmtSec(secToRise)}`;
         } else {
+          // true night: count down to first light
           const secToFirstLight = civRiseSec > localSecNow ? civRiseSec - localSecNow : 86400 - localSecNow + civRiseSec;
           twiText = `first light ${fmtTwi(civ.rise)}  ·  in ${fmtSec(secToFirstLight)}`;
         }
@@ -1337,8 +1486,13 @@ function tick(timestamp) {
       document.getElementById(`utcoff-${i}`).textContent   = utcOffStr;
     }
 
-    document.getElementById(`bg-${i}`).style.background   = skyGradient(solarFrac);
-    buildArc(document.getElementById(`arc-svg-${i}`), solarFrac);
+    // Only update arc/bg from live time if not scrubbing
+    if (simMin[i] === null) {
+      document.getElementById(`bg-${i}`).style.background = skyGradient(solarFrac);
+      buildArc(document.getElementById(`arc-svg-${i}`), solarFrac);
+      buildNightArc(document.getElementById(`night-arc-svg-${i}`), nightFrac, isNightTime);
+      syncScrubber(i, z);
+    }
     document.getElementById(`sr-label-${i}`).textContent   = srLabel;
     document.getElementById(`ss-label-${i}`).textContent   = ssLabel;
     document.getElementById(`sun-status-${i}`).textContent = statusText;
