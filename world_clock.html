@@ -936,6 +936,49 @@ function isStar(solarFrac) {
   return solarFrac < -0.05 || solarFrac > 1.05;
 }
 
+// ─── Moon phase helpers ───────────────────────────────────────────────────────
+function getMoonPhase(date) {
+  // Known new moon: 2000-01-06 18:14 UTC
+  const knownNew = new Date('2000-01-06T18:14:00Z');
+  const synodic  = 29.53058867; // days
+  const elapsed  = (date - knownNew) / 86400000;
+  return ((elapsed % synodic) + synodic) % synodic / synodic; // 0–1
+}
+
+function moonPhaseSVG(cx, cy, r, phase) {
+  // phase: 0=new, 0.25=first quarter (right lit), 0.5=full, 0.75=last quarter (left lit)
+  const illum = (1 - Math.cos(2 * Math.PI * phase)) / 2;
+  const darkFill = 'rgba(12,16,40,0.97)';
+  const litFill  = 'rgba(228,236,255,0.92)';
+  const rim      = 'rgba(160,185,235,0.35)';
+
+  let inner = '';
+  if (illum < 0.01) {
+    // new moon – dark disc + faint rim
+    inner = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${darkFill}"/>
+             <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${rim}" stroke-width="0.8"/>`;
+  } else if (illum > 0.99) {
+    // full moon
+    inner = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${litFill}"/>`;
+  } else {
+    const waxing = phase < 0.5;
+    const cosA   = Math.cos(2 * Math.PI * phase); // 1→0→-1→0→1
+    const termRx = Math.abs(cosA) * r;
+    // Outer semicircle sweep: waxing→right (sweep=1), waning→left (sweep=0)
+    const outerSweep = waxing ? 1 : 0;
+    // Inner terminator sweep: flip based on crescent vs gibbous
+    const termSweep  = waxing ? (cosA >= 0 ? 0 : 1) : (cosA >= 0 ? 1 : 0);
+    const path = `M ${cx} ${cy-r} A ${r} ${r} 0 0 ${outerSweep} ${cx} ${cy+r} A ${termRx} ${r} 0 0 ${termSweep} ${cx} ${cy-r} Z`;
+    inner = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${darkFill}"/>
+             <path d="${path}" fill="${litFill}"/>
+             <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${rim}" stroke-width="0.8"/>`;
+  }
+  // outer glow rings
+  return `<circle cx="${cx}" cy="${cy}" r="${r+7}" fill="rgba(180,200,255,0.04)"/>
+          <circle cx="${cx}" cy="${cy}" r="${r+3}" fill="rgba(210,225,255,0.07)"/>
+          ${inner}`;
+}
+
 // ─── SVG arc ─────────────────────────────────────────────────────────────────
 const cx = 100, cy = 108, r = 90;
 
@@ -958,11 +1001,9 @@ function buildArc(svgEl, solarFrac, nightFrac) {
         fill="none" stroke="rgba(200,215,255,0.28)" stroke-width="1.5"/>`;
     }
 
-    // Moon: glowing disc
-    dotSvg = `
-      <circle cx="${dx.toFixed(2)}" cy="${dy.toFixed(2)}" r="13" fill="rgba(180,200,255,0.05)"/>
-      <circle cx="${dx.toFixed(2)}" cy="${dy.toFixed(2)}" r="9"  fill="rgba(210,225,255,0.10)"/>
-      <circle cx="${dx.toFixed(2)}" cy="${dy.toFixed(2)}" r="5.5" fill="rgba(228,236,255,0.90)"/>`;
+    // Moon: phase-accurate disc
+    const moonPhase = getMoonPhase(new Date());
+    dotSvg = moonPhaseSVG(parseFloat(dx.toFixed(2)), parseFloat(dy.toFixed(2)), 5.5, moonPhase);
   } else {
     // Sun: f=0 (sunrise/left) → f=1 (sunset/right)
     const f = Math.max(0, Math.min(1, solarFrac));
