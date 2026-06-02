@@ -175,6 +175,7 @@ body {
   margin-top: 3px;
   margin-bottom: 6px;
 }
+#dlpct-0, #dlpct-1, #dlpct-2 { display: none; }
 .progress-wrap {
   height: 2px;
   background: rgba(255,255,255,0.07);
@@ -436,6 +437,8 @@ body {
         <div class="progress-wrap"><div class="progress-fill" id="progress-0" style="width:0%"></div></div>
         <div class="stats-list">
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">First light</span><span class="stat-val" id="firstlight-0">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Last light</span><span class="stat-val" id="lastlight-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-0">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Golden hour</span><span class="stat-val" id="golden-0">–</span></div>
@@ -470,6 +473,8 @@ body {
         <div class="progress-wrap"><div class="progress-fill" id="progress-1" style="width:0%"></div></div>
         <div class="stats-list">
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">First light</span><span class="stat-val" id="firstlight-1">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Last light</span><span class="stat-val" id="lastlight-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-1">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Golden hour</span><span class="stat-val" id="golden-1">–</span></div>
@@ -504,6 +509,8 @@ body {
         <div class="progress-wrap"><div class="progress-fill" id="progress-2" style="width:0%"></div></div>
         <div class="stats-list">
           <div class="stat-row"><span class="stat-lbl">Total daylight</span><span class="stat-val hi" id="daylight-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">First light</span><span class="stat-val" id="firstlight-2">–</span></div>
+          <div class="stat-row"><span class="stat-lbl">Last light</span><span class="stat-val" id="lastlight-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Solar noon</span><span class="stat-val" id="noon-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">UTC offset</span><span class="stat-val" id="utcoff-2">–</span></div>
           <div class="stat-row"><span class="stat-lbl">Golden hour</span><span class="stat-val" id="golden-2">–</span></div>
@@ -1148,18 +1155,15 @@ function tick(timestamp) {
       srLabel = `↑ ${formatLocalTime(st.rise, offsetMin)}`;
       ssLabel = `↓ ${formatLocalTime(st.set,  offsetMin)}`;
 
-      // Countdown to next event + pct-remaining label
-      let dlPctText;
+      // Countdown to next event — include the actual event time
       if (isDay) {
         const rem = setLocal - localSecNow;
-        statusText = `Sunset in ${fmtSec(rem)}`;
-        dlPctText  = `${(rem / dayLenSec * 100).toFixed(1)}% daylight remaining`;
+        statusText = `Sunset at ${formatLocalTime(st.set, offsetMin)}  ·  in ${fmtSec(rem)}`;
       } else {
         const secToRise = localSecNow < riseLocal
           ? riseLocal - localSecNow
           : 86400 - localSecNow + riseLocal;
-        statusText = `Dawn in ${fmtSec(secToRise)}`;
-        dlPctText  = `${(secToRise / nightLenSec * 100).toFixed(1)}% night remaining`;
+        statusText = `Sunrise at ${formatLocalTime(st.rise, offsetMin)}  ·  in ${fmtSec(secToRise)}`;
       }
 
       // Total daylight
@@ -1184,43 +1188,39 @@ function tick(timestamp) {
       document.getElementById(`utcoff-${i}`).textContent    = utcOffStr;
       document.getElementById(`golden-${i}`).textContent    = goldenStr;
       document.getElementById(`vsyest-${i}`).textContent    = vsYestStr;
+      document.getElementById(`firstlight-${i}`).textContent = civ ? formatLocalTime(civ.rise, offsetMin) : '–';
+      document.getElementById(`lastlight-${i}`).textContent  = civ ? formatLocalTime(civ.set,  offsetMin) : '–';
       document.getElementById(`progress-${i}`).style.width  = `${Math.max(0, Math.min(100, solarFrac * 100)).toFixed(1)}%`;
       document.getElementById(`daypct-${i}`).textContent    = `${dayPct}% of 24h elapsed`;
-      document.getElementById(`dlpct-${i}`).textContent     = dlPctText;
+      document.getElementById(`dlpct-${i}`).textContent     = '';
 
-      // Twilight countdown (civil twilight = 96° zenith)
+      // Twilight line — true light = first light → last light window
       let twiText = '';
       if (civ) {
         const wrapT = s => ((s % 86400) + 86400) % 86400;
-        const civRise = wrapT(Math.round(civ.rise * 60) + offsetMin * 60); // first light
-        const civSet  = wrapT(Math.round(civ.set  * 60) + offsetMin * 60); // last light
+        const civRise = wrapT(Math.round(civ.rise * 60) + offsetMin * 60);
+        const civSet  = wrapT(Math.round(civ.set  * 60) + offsetMin * 60);
         const lsn = wrapT(utcSec + offsetMin * 60);
 
-        if (isDay) {
-          // daytime → count down to last light (civil dusk)
-          const secToLastLight = civSet > lsn ? civSet - lsn : 86400 - lsn + civSet;
-          const pct = (secToLastLight / (civSet > civRise ? civSet - civRise : 86400 - civRise + civSet) * 100);
-          // reuse dlPctText % for "true daylight remaining" context
-          const truePct = isDay
-            ? ((setLocal - lsn) / dayLenSec * 100).toFixed(1)
-            : null;
-          twiText = `last light in ${fmtSec(secToLastLight)}${truePct !== null ? `  (${truePct}% daylight left)` : ''}`;
-        } else {
-          // Are we in the civil twilight window? (past civRise, before actual sunrise)
-          const inCivilTwilight = civRise <= riseLocal
-            ? (lsn >= civRise && lsn < riseLocal)
-            : (lsn >= civRise || lsn < riseLocal); // wraps midnight
+        // Total true-light window in seconds
+        const trueLightSec = civSet > civRise ? civSet - civRise : 86400 - civRise + civSet;
 
-          if (inCivilTwilight) {
-            // Already past first light — in civil dawn window, waiting for sunrise
-            const secToRise = riseLocal > lsn ? riseLocal - lsn : 86400 - lsn + riseLocal;
-            twiText = `first light passed  ·  sunrise in ${fmtSec(secToRise)}`;
-          } else {
-            // True night — count down to first light
-            const secToFirstLight = civRise > lsn ? civRise - lsn : 86400 - lsn + civRise;
-            const nightPct = (secToFirstLight / nightLenSec * 100).toFixed(1);
-            twiText = `first light in ${fmtSec(secToFirstLight)}  (${nightPct}% night left)`;
-          }
+        // Are we currently inside the true-light window?
+        const inTrueLight = civSet > civRise
+          ? (lsn >= civRise && lsn <= civSet)
+          : (lsn >= civRise || lsn <= civSet);
+
+        if (inTrueLight) {
+          // Inside true-light window → count down to last light
+          const secToLastLight = civSet > lsn ? civSet - lsn : 86400 - lsn + civSet;
+          const pct = (secToLastLight / trueLightSec * 100).toFixed(1);
+          twiText = `last light at ${formatLocalTime(civ.set, offsetMin)}  ·  in ${fmtSec(secToLastLight)}  (${pct}% true light left)`;
+        } else {
+          // Outside true-light window (dark) → count down to first light
+          const secToFirstLight = civRise > lsn ? civRise - lsn : 86400 - lsn + civRise;
+          const darknessSec = 86400 - trueLightSec;
+          const pct = (secToFirstLight / darknessSec * 100).toFixed(1);
+          twiText = `first light at ${formatLocalTime(civ.rise, offsetMin)}  ·  in ${fmtSec(secToFirstLight)}  (${pct}% darkness left)`;
         }
       }
       document.getElementById(`twi-${i}`).textContent = twiText;
