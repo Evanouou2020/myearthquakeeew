@@ -803,6 +803,13 @@ input[type="color"] {
         <span id="sc-pct-lbl" style="color:var(--accent)"></span>
         <span>Aug 13, 2026 8:30 AM</span>
       </div>
+      <!-- Total remaining one-liners -->
+      <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px">
+        <div style="font-size:0.65rem;color:var(--text-dim)">Hours remaining: <span id="sc-total-h" style="color:var(--accent);font-variant-numeric:tabular-nums">—</span></div>
+        <div style="font-size:0.65rem;color:var(--text-dim)">Minutes remaining: <span id="sc-total-m" style="color:var(--accent);font-variant-numeric:tabular-nums">—</span></div>
+        <div style="font-size:0.65rem;color:var(--text-dim)">Seconds remaining: <span id="sc-total-s" style="color:var(--accent);font-variant-numeric:tabular-nums">—</span></div>
+        <div style="font-size:0.65rem;color:var(--text-dim)">Milliseconds remaining: <span id="sc-total-ms" style="color:var(--accent);font-variant-numeric:tabular-nums">—</span></div>
+      </div>
     </div>
 
     <!-- Percentage cards -->
@@ -943,10 +950,15 @@ input[type="color"] {
     const now=Date.now();
 
     // School countdown
-    fmtCd(SCHOOL_START-now,'sc');
+    const toSchool=Math.max(0,SCHOOL_START-now);
+    fmtCd(toSchool,'sc');
     const gone=Math.min(1,Math.max(0,(now-SUMMER_START)/SUMMER_LEN));
     document.getElementById('sc-bar').style.width=(gone*100)+'%';
     document.getElementById('sc-pct-lbl').textContent=pct3(gone)+' of summer elapsed';
+    document.getElementById('sc-total-h').textContent  = Math.floor(toSchool/3600000).toLocaleString();
+    document.getElementById('sc-total-m').textContent  = Math.floor(toSchool/60000).toLocaleString();
+    document.getElementById('sc-total-s').textContent  = Math.floor(toSchool/1000).toLocaleString();
+    document.getElementById('sc-total-ms').textContent = toSchool.toLocaleString();
 
     // Summer remaining
     const sumLeft=1-gone;
