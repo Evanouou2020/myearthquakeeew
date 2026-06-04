@@ -608,6 +608,7 @@ input[type="color"] {
       </div>
       <div class="bar-wrap"><div class="bar-fill bar-remain" id="bar-remain" style="width:0%"></div></div>
       <div class="day-stat-sub" id="time-remaining">—</div>
+      <div style="font-size:0.62rem;color:var(--text-faint);margin-top:3px;font-variant-numeric:tabular-nums" id="time-remaining-hms">—</div>
     </div>
 
     <div class="day-time-block" style="margin-top:14px">
@@ -1095,9 +1096,10 @@ function updateDayProgress(now){
   document.getElementById('bar-remain').style.width=`${pctLeft*100}%`;
 
   const elH=Math.floor(elapsed/60), elM=Math.round(elapsed%60);
-  const remH=Math.floor(remain/60), remM=Math.round(remain%60);
+  const remH=Math.floor(remain/60), remM=Math.floor(remain%60), remS=Math.floor((remain%1)*60);
   document.getElementById('time-elapsed').textContent=`${elH}h ${elM}m elapsed`;
-  document.getElementById('time-remaining').textContent=`${remH}h ${remM}m remaining`;
+  document.getElementById('time-remaining').textContent=`${remH}h ${remM}m ${remS}s remaining`;
+  document.getElementById('time-remaining-hms').textContent=`${pad(remH)}:${pad(remM)}:${pad(remS)}`;
   const dayLenH=Math.floor(dayLen/60), dayLenM=dayLen%60;
   document.getElementById('day-length').textContent=
     `${dayLenH}h ${dayLenM}m${overnight?' (+1 day)':''}`;
