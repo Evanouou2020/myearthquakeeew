@@ -844,6 +844,27 @@ input[type="color"] {
         <div class="sc-card-sub" id="sub-month"></div>
       </div>
 
+      <div class="sc-card">
+        <div class="sc-card-title">🕐 Hour Remaining</div>
+        <div class="sc-card-val" id="pct-hour">—</div>
+        <div class="bar-wrap" style="margin:6px 0 4px"><div class="bar-fill" id="bar-hour" style="background:#4af"></div></div>
+        <div class="sc-card-sub" id="sub-hour"></div>
+      </div>
+
+      <div class="sc-card">
+        <div class="sc-card-title">⏱ Minute Remaining</div>
+        <div class="sc-card-val" id="pct-minute">—</div>
+        <div class="bar-wrap" style="margin:6px 0 4px"><div class="bar-fill" id="bar-minute" style="background:#f84"></div></div>
+        <div class="sc-card-sub" id="sub-minute"></div>
+      </div>
+
+      <div class="sc-card">
+        <div class="sc-card-title">⚡ Second Remaining</div>
+        <div class="sc-card-val" id="pct-second">—</div>
+        <div class="bar-wrap" style="margin:6px 0 4px"><div class="bar-fill" id="bar-second" style="background:#4f8"></div></div>
+        <div class="sc-card-sub" id="sub-second"></div>
+      </div>
+
     </div>
 
     <!-- Custom countdown calculator -->
@@ -995,6 +1016,33 @@ input[type="color"] {
     document.getElementById('pct-month').textContent=pct3(monR);
     document.getElementById('bar-month').style.width=(monR*100)+'%';
     document.getElementById('sub-month').textContent=Math.max(0,(mlen-(now-som))/DAY).toFixed(2)+' days left in month';
+
+    // Hour remaining
+    const HOUR=3600000;
+    const intoHour=now%HOUR;
+    const hourR=1-intoHour/HOUR;
+    const minsInHourLeft=Math.floor((HOUR-intoHour)/60000);
+    const secsInHourLeft=Math.floor(((HOUR-intoHour)%60000)/1000);
+    document.getElementById('pct-hour').textContent=pct3(hourR);
+    document.getElementById('bar-hour').style.width=(hourR*100)+'%';
+    document.getElementById('sub-hour').textContent=`${minsInHourLeft}m ${secsInHourLeft}s until next hour`;
+
+    // Minute remaining
+    const MIN=60000;
+    const intoMin=now%MIN;
+    const minR=1-intoMin/MIN;
+    const secsInMinLeft=Math.floor((MIN-intoMin)/1000);
+    document.getElementById('pct-minute').textContent=pct3(minR);
+    document.getElementById('bar-minute').style.width=(minR*100)+'%';
+    document.getElementById('sub-minute').textContent=`${secsInMinLeft}s until next minute`;
+
+    // Second remaining
+    const SEC=1000;
+    const intoSec=now%SEC;
+    const secR=1-intoSec/SEC;
+    document.getElementById('pct-second').textContent=pct3(secR);
+    document.getElementById('bar-second').style.width=(secR*100)+'%';
+    document.getElementById('sub-second').textContent=`${(SEC-intoSec)}ms until next second`;
 
     // Custom
     if(ccStart&&ccEnd){
